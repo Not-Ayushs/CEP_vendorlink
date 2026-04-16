@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-transition { transition: background-color 0.3s ease; }
+        .no-line-rule { border: none !important; }
+        .tap-highlight-transparent { -webkit-tap-highlight-color: transparent; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#410004",
+                        "outline": "#6d7a72",
+                        "on-primary": "#ffffff",
+                        "on-background": "#191c1e",
+                        "tertiary-fixed": "#ffdad7",
+                        "error": "#ba1a1a",
+                        "tertiary": "#9b3e3b",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary-fixed-variant": "#173bab",
+                        "primary-fixed": "#85f8c4",
+                        "surface-variant": "#e0e3e5",
+                        "inverse-on-surface": "#eff1f3",
+                        "background": "#f7f9fb",
+                        "on-secondary-fixed": "#001453",
+                        "surface-bright": "#f7f9fb",
+                        "secondary-fixed-dim": "#b8c4ff",
+                        "on-tertiary-fixed-variant": "#7f2928",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-container": "#fffbff",
+                        "outline-variant": "#bccac0",
+                        "on-secondary-container": "#00217a",
+                        "primary": "#006948",
+                        "secondary-container": "#708cfd",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "on-primary-fixed-variant": "#005137",
+                        "on-surface-variant": "#3d4a42",
+                        "secondary-fixed": "#dde1ff",
+                        "surface-container-high": "#e6e8ea",
+                        "on-tertiary": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "tertiary-container": "#ba5551",
+                        "primary-container": "#00855d",
+                        "secondary": "#3755c3",
+                        "on-primary-container": "#f5fff7",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-surface": "#2d3133",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#68dba9",
+                        "surface-dim": "#d8dadc",
+                        "primary-fixed-dim": "#68dba9",
+                        "surface-tint": "#006c4a",
+                        "on-secondary": "#ffffff",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-error": "#ffffff",
+                        "surface-container": "#eceef0",
+                        "surface": "#f7f9fb",
+                        "on-primary-fixed": "#002114"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-[#f7f9fb] text-emerald-700 font-['Inter'] text-lg font-bold tracking-tight docked full-width top-0 flex justify-between items-center w-full px-6 py-4 no-line-rule tonal-shift flat no-shadows tap-highlight-transparent">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" data-alt="close-up portrait of a professional male fleet driver wearing a clean uniform with a friendly expression in bright daylight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwhKxQiaVhniAinzU83w3uUn5pKWFUnF_rkNo9cmTjuVibb7vE-d_68laNyDBWGmh0pDZx5GuTuaunDJawbDn7sRPZ6DGJ90pxFrh-tPUW1Id7pmIdL4PQryQSRviXZ6isoNF_ub3DrjNg3PFlab42II83ehXV8jAdJKVt3evttyP3MClcfiRDXKkHEdcpCDEe8Q-I2pEPDkmEVjljUH6Wajan0g5zoDs8eVJv2MIDPRbIDa1pPh0Ms-hLowBzRbm1z9kHuvVtrg"/>
+</div>
+<span class="text-emerald-900 font-black tracking-tighter">Waste Ops</span>
+</div>
+<button class="text-slate-600 hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</header>
+<main class="px-6 py-4 space-y-8 max-w-2xl mx-auto">
+<!-- Today's Progress Section -->
+<section class="space-y-6">
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-on-surface-variant font-medium text-sm tracking-wide">TODAY'S PROGRESS</h2>
+<p class="text-[2.25rem] font-black text-on-surface leading-tight">18 / 25 <span class="text-lg font-medium text-on-surface-variant">Pickups</span></p>
+</div>
+<div class="h-14 w-14 rounded-full flex items-center justify-center bg-primary-container text-on-primary-container shadow-sm">
+<span class="material-symbols-outlined text-2xl" data-icon="trending_up">trending_up</span>
+</div>
+</div>
+<!-- Bento Stats Grid -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-lowest p-6 rounded-xl space-y-1">
+<p class="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Completed</p>
+<p class="text-3xl font-black text-primary">18</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl space-y-1">
+<p class="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Pending</p>
+<p class="text-3xl font-black text-secondary">07</p>
+</div>
+</div>
+<!-- Progress Bar -->
+<div class="w-full h-3 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-primary-container rounded-full w-[72%]"></div>
+</div>
+</section>
+<!-- Pickup List Section -->
+<section class="space-y-4">
+<div class="flex justify-between items-center">
+<h3 class="font-bold text-lg text-on-surface">Upcoming Route</h3>
+<span class="text-primary font-bold text-sm">View Map</span>
+</div>
+<div class="space-y-2">
+<!-- List Item 1 -->
+<div class="group flex items-center justify-between py-4 tonal-transition hover:bg-surface-container-low rounded-xl px-2">
+<div class="flex items-center gap-4">
+<div class="w-2 h-2 rounded-full bg-primary" title="Success"></div>
+<div>
+<p class="font-bold text-on-surface">Green Valley Bistro</p>
+<div class="flex gap-3 text-xs text-on-surface-variant font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="near_me">near_me</span>0.5km</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="delete">delete</span>15kg</span>
+</div>
+</div>
+</div>
+<button class="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-primary">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<!-- List Item 2 -->
+<div class="group flex items-center justify-between py-4 tonal-transition hover:bg-surface-container-low rounded-xl px-2 border-t border-outline-variant/10">
+<div class="flex items-center gap-4">
+<div class="w-2 h-2 rounded-full bg-primary" title="Success"></div>
+<div>
+<p class="font-bold text-on-surface">The Grand Plaza</p>
+<div class="flex gap-3 text-xs text-on-surface-variant font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="near_me">near_me</span>1.2km</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="delete">delete</span>42kg</span>
+</div>
+</div>
+</div>
+<button class="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-primary">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<!-- List Item 3 (Pending) -->
+<div class="group flex items-center justify-between py-4 tonal-transition hover:bg-surface-container-low rounded-xl px-2 border-t border-outline-variant/10">
+<div class="flex items-center gap-4">
+<div class="w-2 h-2 rounded-full bg-outline-variant" title="Pending"></div>
+<div>
+<p class="font-bold text-on-surface">Urban Heights Apts</p>
+<div class="flex gap-3 text-xs text-on-surface-variant font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="near_me">near_me</span>2.8km</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="delete">delete</span>120kg</span>
+</div>
+</div>
+</div>
+<button class="bg-primary text-on-primary px-4 py-1 rounded-full text-xs font-bold shadow-sm">START</button>
+</div>
+<!-- List Item 4 (Pending) -->
+<div class="group flex items-center justify-between py-4 tonal-transition hover:bg-surface-container-low rounded-xl px-2 border-t border-outline-variant/10">
+<div class="flex items-center gap-4">
+<div class="w-2 h-2 rounded-full bg-outline-variant" title="Pending"></div>
+<div>
+<p class="font-bold text-on-surface">Harbor Side Cafe</p>
+<div class="flex gap-3 text-xs text-on-surface-variant font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="near_me">near_me</span>3.5km</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="delete">delete</span>18kg</span>
+</div>
+</div>
+</div>
+<button class="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-primary">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Dynamic Map Widget (Decorative) -->
+<div class="rounded-2xl overflow-hidden h-48 relative shadow-sm">
+<img alt="Map view" class="w-full h-full object-cover grayscale opacity-40" data-alt="abstract top-down view of a modern minimalist city map with soft emerald and slate colors highlighting route lines" src="https://lh3.googleusercontent.com/aida-public/AB6AXuASJ5st77JVnFEVgHfrL865Uar7s0FZU_beCk8nN2fgyJimp8mwXMi8H5NjihBcjgMamyaoyifXEa3aEzaqs0o_ukUIzHoM2lXzK0Z99uD0c8AbSaDPS8D3xyTo59apw5HRwhYC31LDtPL23L33Ojp3pZ1HYJ9BMQrD5IsqVbCjNxN-UnGTcDcmZoWu-Z3Zq-Vhzqo42kdxi4FzgHhhNOjDWxEprebimWlZ84URQuBaQkjsiWZ3i50qBFVf7poOotse7-SrrweRRg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4 bg-white/80 backdrop-blur-md p-4 rounded-xl flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-primary rounded-lg text-on-primary">
+<span class="material-symbols-outlined" data-icon="navigation">navigation</span>
+</div>
+<div>
+<p class="text-xs font-bold text-on-surface-variant">NEXT STOP</p>
+<p class="font-bold text-on-surface">Urban Heights Apts</p>
+</div>
+</div>
+<span class="text-xs font-black text-primary">0.2 mi</span>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-t-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.06)] border-t border-white/20 tonal-transition">
+<!-- Dashboard (Active) -->
+<a class="flex flex-col items-center justify-center bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-100 rounded-xl px-4 py-1 active:scale-95 duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-['Inter'] text-[0.75rem] font-medium tracking-tight">Dashboard</span>
+</a>
+<!-- Route -->
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95 duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="route">route</span>
+<span class="font-['Inter'] text-[0.75rem] font-medium tracking-tight">Route</span>
+</a>
+<!-- History -->
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95 duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-['Inter'] text-[0.75rem] font-medium tracking-tight">History</span>
+</a>
+</nav>
+</body></html>

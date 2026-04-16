@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vendor Detail - Waste Ops</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#410004",
+                        "outline": "#6d7a72",
+                        "on-primary": "#ffffff",
+                        "on-background": "#191c1e",
+                        "tertiary-fixed": "#ffdad7",
+                        "error": "#ba1a1a",
+                        "tertiary": "#9b3e3b",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary-fixed-variant": "#173bab",
+                        "primary-fixed": "#85f8c4",
+                        "surface-variant": "#e0e3e5",
+                        "inverse-on-surface": "#eff1f3",
+                        "background": "#f7f9fb",
+                        "on-secondary-fixed": "#001453",
+                        "surface-bright": "#f7f9fb",
+                        "secondary-fixed-dim": "#b8c4ff",
+                        "on-tertiary-fixed-variant": "#7f2928",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-container": "#fffbff",
+                        "outline-variant": "#bccac0",
+                        "on-secondary-container": "#00217a",
+                        "primary": "#006948",
+                        "secondary-container": "#708cfd",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "on-primary-fixed-variant": "#005137",
+                        "on-surface-variant": "#3d4a42",
+                        "secondary-fixed": "#dde1ff",
+                        "surface-container-high": "#e6e8ea",
+                        "on-tertiary": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "tertiary-container": "#ba5551",
+                        "primary-container": "#00855d",
+                        "secondary": "#3755c3",
+                        "on-primary-container": "#f5fff7",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-surface": "#2d3133",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#68dba9",
+                        "surface-dim": "#d8dadc",
+                        "primary-fixed-dim": "#68dba9",
+                        "surface-tint": "#006c4a",
+                        "on-secondary": "#ffffff",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-error": "#ffffff",
+                        "surface-container": "#eceef0",
+                        "surface": "#f7f9fb",
+                        "on-primary-fixed": "#002114"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-shift { background-color: #f2f4f6; }
+        .tonal-transition { background-color: #f7f9fb; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-6 py-4 bg-[#f7f9fb] dark:bg-slate-950 fixed top-0 z-50">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-on-surface">arrow_back</span>
+</button>
+<h1 class="text-emerald-900 dark:text-emerald-50 font-black tracking-tighter text-lg">Waste Ops</h1>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-400">notifications</span>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center overflow-hidden">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" data-alt="close-up portrait of a professional driver wearing a clean uniform and a friendly expression, soft daylight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvBGpmrpOslvST2TGgrqvrGiGsrJsD_bgRGvQQxUGQ3gbfoAgM4DS8l_Ao5QDkuPJHVkvZj-i5yyp1soOnW8SVm0jlr3cFA09E1GObJhacbI_srfUr66i4VjgvaR5fm1PoFR04utsf9cwIomVPVnLTwGrFsgLkhnNO92Ikuw4q0OjfIxG_fHi-zxWyz4L3vrA26OvYUdiziWXzNkHkBpGKLDJUeGB77w9ybWVXgMq4pFPE6gRyVXCHSpOYx9p4C_3oaW-uIiBvdg"/>
+</div>
+</div>
+</header>
+<main class="pt-20 px-6 max-w-2xl mx-auto space-y-6">
+<!-- Map Preview Section -->
+<section class="w-full h-48 rounded-xl overflow-hidden relative group">
+<img class="w-full h-full object-cover" data-alt="clean minimalist map preview of a city block with a professional green location marker at the center" data-location="San Francisco, CA" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgPfDOweOuEIUrhy2Opf3IrIvI_kQ62Gfj9gH3_Fmet1Iv6cgOay0lXIKqRjKB3m2IWH57Y2DEFq80mLlnGyr8UX7A3UJ6lenbgKcy55xOiV8yEIfNTx3HzX9BrlYhfnPBQtJBCbd1BgZmzXnyvGM1izf6NXGpjjOe_FgChaLxShjKBp181KmhdB0kx_wqY2083YODtHUuhttfvkQ-uKgCLcNk4eTQK7mgAb__tV-j3sJ6cqWYZrshR_wXviO312Wuj1BPQe4bRA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent flex items-end p-4">
+<span class="text-white font-medium text-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">near_me</span>
+                    0.4 miles away
+                </span>
+</div>
+</section>
+<!-- Vendor Identity Block -->
+<section class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="text-[0.75rem] font-medium tracking-tight text-primary bg-primary-fixed/30 px-3 py-1 rounded-full">ACTIVE PICKUP</span>
+<span class="text-[0.75rem] font-medium text-on-surface-variant">ID: #VN-8829</span>
+</div>
+<h2 class="text-2xl font-extrabold text-on-surface tracking-tight">Green Leaf Cafe</h2>
+<p class="text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">location_on</span>
+                482 Industrial Way, Dock B
+            </p>
+</section>
+<!-- Waste Declaration Bento Grid -->
+<section class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-lowest p-6 rounded-xl flex flex-col justify-between h-40">
+<div class="flex items-start justify-between">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">eco</span>
+<span class="text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-widest">Type</span>
+</div>
+<div>
+<div class="text-2xl font-black text-on-surface">Organic</div>
+<div class="text-sm text-on-surface-variant">Food &amp; Plant Waste</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl flex flex-col justify-between h-40">
+<div class="flex items-start justify-between">
+<span class="material-symbols-outlined text-secondary text-3xl">scale</span>
+<span class="text-[0.75rem] font-bold text-on-surface-variant uppercase tracking-widest">Declared</span>
+</div>
+<div>
+<div class="text-2xl font-black text-on-surface">12.0 kg</div>
+<div class="text-sm text-on-surface-variant">Estimated volume</div>
+</div>
+</div>
+</section>
+<!-- Dynamic Action Console -->
+<section class="space-y-4 pt-4">
+<div class="grid grid-cols-2 gap-4">
+<button class="flex items-center justify-center gap-3 bg-white border border-outline-variant/30 text-on-surface font-bold py-4 rounded-xl hover:bg-surface-container-low transition-all active:scale-95">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+                    Scan QR
+                </button>
+<button class="flex items-center justify-center gap-3 bg-white border border-outline-variant/30 text-on-surface font-bold py-4 rounded-xl hover:bg-surface-container-low transition-all active:scale-95">
+<span class="material-symbols-outlined">photo_camera</span>
+                    Upload Photo
+                </button>
+</div>
+<!-- Disabled Primary Action -->
+<button class="w-full flex items-center justify-center gap-3 bg-slate-200 text-slate-500 font-bold py-5 rounded-xl cursor-not-allowed opacity-70" disabled="">
+<span class="material-symbols-outlined">task_alt</span>
+                Mark as Collected
+            </button>
+<p class="text-center text-[0.75rem] text-on-surface-variant font-medium px-8">
+                Complete photo upload and QR scan to unlock final collection confirmation.
+            </p>
+</section>
+<!-- Historical Context -->
+<section class="bg-surface-container rounded-xl p-5 space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="font-bold text-sm">Previous Collections</h3>
+<span class="text-[0.75rem] text-primary font-bold">View History</span>
+</div>
+<div class="space-y-3">
+<div class="flex items-center justify-between bg-surface-container-lowest p-3 rounded-lg">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="text-sm font-medium">Oct 24</span>
+</div>
+<span class="text-sm font-bold">11.4 kg</span>
+</div>
+<div class="flex items-center justify-between bg-surface-container-lowest p-3 rounded-lg">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="text-sm font-medium">Oct 21</span>
+</div>
+<span class="text-sm font-bold">13.8 kg</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Navigation Shell (Mobile) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,0,0,0.06)] rounded-t-2xl md:hidden">
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-['Inter'] text-[0.75rem] font-medium tracking-tight">Dashboard</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-100 rounded-xl px-4 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined" data-icon="route">route</span>
+<span class="font-['Inter'] text-[0.75rem] font-medium tracking-tight">Route</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-['Inter'] text-[0.75rem] font-medium tracking-tight">History</span>
+</div>
+</nav>
+<!-- Navigation Shell (Desktop Sidebar) -->
+<aside class="hidden md:flex flex-col h-screen sticky top-0 p-4 gap-2 h-full w-64 bg-[#eceef0] dark:bg-slate-900 border-r-0 fixed left-0">
+<div class="text-2xl font-black text-emerald-900 dark:text-emerald-50 mb-8">Waste Ops</div>
+<div class="bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 rounded-lg shadow-sm font-bold flex items-center gap-3 p-3 hover:translate-x-1 transition-transform duration-200">
+<span class="material-symbols-outlined">map</span>
+<span class="font-['Inter'] text-sm">Map</span>
+</div>
+<div class="text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 flex items-center gap-3 p-3 rounded-lg hover:translate-x-1 transition-transform duration-200">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-['Inter'] text-sm">Stats</span>
+</div>
+<div class="text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 flex items-center gap-3 p-3 rounded-lg hover:translate-x-1 transition-transform duration-200">
+<span class="material-symbols-outlined">table_chart</span>
+<span class="font-['Inter'] text-sm">Table View</span>
+</div>
+<div class="mt-auto pt-6 flex flex-col gap-2">
+<div class="flex items-center gap-3 p-3">
+<div class="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden border-2 border-primary">
+<img alt="Admin User" class="w-full h-full object-cover" data-alt="professional portrait of an operations manager in a tech-focused office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtBw7SGQoaF4FFSNQ3LgdqvYaMXTq3bsXw9Of37nzDz5cg3agqEZOXAfPpC7onLnulbbnaXYCzAOnu68sEl2S_vEuxG5cMIkSIKMNDwXGmAdOVMF1vAVTht1oEeUOHSxQv_6CiWyD2Fhq9jirwwD6l7WVzo76hqYtDlCetz355rfL5uvxvudUE7kUVpQjbVveWhyJfyXBl-1lr15IXtNt-Ca6SAuUFTGinlmyN7FNJkyEDqeyQeFhrn132HVrETkOP0ytF2W4Ckw"/>
+</div>
+<div>
+<div class="font-bold text-sm">Admin Panel</div>
+<div class="text-xs text-on-surface-variant">Operations Control</div>
+</div>
+</div>
+<div class="text-[10px] text-on-surface-variant px-3 uppercase tracking-widest font-bold">v2.4.0</div>
+</div>
+</aside>
+</body></html>

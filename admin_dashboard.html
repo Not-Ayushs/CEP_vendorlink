@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Waste Ops Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#410004",
+                    "outline": "#6d7a72",
+                    "on-primary": "#ffffff",
+                    "on-background": "#191c1e",
+                    "tertiary-fixed": "#ffdad7",
+                    "error": "#ba1a1a",
+                    "tertiary": "#9b3e3b",
+                    "surface-container-low": "#f2f4f6",
+                    "on-secondary-fixed-variant": "#173bab",
+                    "primary-fixed": "#85f8c4",
+                    "surface-variant": "#e0e3e5",
+                    "inverse-on-surface": "#eff1f3",
+                    "background": "#f7f9fb",
+                    "on-secondary-fixed": "#001453",
+                    "surface-bright": "#f7f9fb",
+                    "secondary-fixed-dim": "#b8c4ff",
+                    "on-tertiary-fixed-variant": "#7f2928",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-container": "#fffbff",
+                    "outline-variant": "#bccac0",
+                    "on-secondary-container": "#00217a",
+                    "primary": "#006948",
+                    "secondary-container": "#708cfd",
+                    "tertiary-fixed-dim": "#ffb3ae",
+                    "on-primary-fixed-variant": "#005137",
+                    "on-surface-variant": "#3d4a42",
+                    "secondary-fixed": "#dde1ff",
+                    "surface-container-high": "#e6e8ea",
+                    "on-tertiary": "#ffffff",
+                    "on-surface": "#191c1e",
+                    "tertiary-container": "#ba5551",
+                    "primary-container": "#00855d",
+                    "secondary": "#3755c3",
+                    "on-primary-container": "#f5fff7",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-surface": "#2d3133",
+                    "error-container": "#ffdad6",
+                    "inverse-primary": "#68dba9",
+                    "surface-dim": "#d8dadc",
+                    "primary-fixed-dim": "#68dba9",
+                    "surface-tint": "#006c4a",
+                    "on-secondary": "#ffffff",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-error": "#ffffff",
+                    "surface-container": "#eceef0",
+                    "surface": "#f7f9fb",
+                    "on-primary-fixed": "#002114"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-shift { background-color: #f7f9fb; }
+        .no-line-rule { border: none !important; }
+        .surface-container { background-color: #eceef0; }
+        .tap-highlight-transparent { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-fixed selection:text-on-primary-fixed">
+<div class="flex min-h-screen">
+<!-- NavigationDrawer -->
+<aside class="hidden md:flex flex-col h-screen sticky top-0 p-4 gap-2 bg-[#eceef0] dark:bg-slate-900 h-full w-64 border-r-0 font-['Inter'] text-sm font-medium tonal-layering surface-container">
+<div class="text-2xl font-black text-emerald-900 dark:text-emerald-50 mb-8 px-4">Waste Ops</div>
+<div class="flex items-center gap-3 px-4 py-6 mb-4">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional portrait of a middle-aged male operations manager in a clean white office setting with soft natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBglH6A-BJxXe5k9plMI2ziYIsd1CV56H9RHCJWAKJocwoHOBMWO6C_ztso0ghQUHeRNT2bLvoxnkznqnbkN-j91GKlUEmrGmjJuKxZggvKF2_U1GnvNVr_8MbNmgi57XcnTXXYnW68JEOOiIXhMgXTMD8ZrXUJQphOtObv8aU69B_N81py_7F7PrRNDqDcYtaZfAmbAqGPZrGLuy2XMMedJgmvMLAASu17JE96EOFOZMiwHYNieZ4Gjwcq8ah6r4v98mF4qFIeQw"/>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface font-bold">Admin Panel</span>
+<span class="text-xs text-on-surface-variant">Operations Control</span>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<!-- Map Tab Active -->
+<a class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 rounded-lg shadow-sm font-bold hover:translate-x-1 transition-transform duration-200 Active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="map">map</span>
+<span>Map</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg hover:translate-x-1 transition-transform duration-200 Active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span>Stats</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg hover:translate-x-1 transition-transform duration-200 Active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="table_chart">table_chart</span>
+<span>Table View</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg hover:translate-x-1 transition-transform duration-200 Active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="report_problem">report_problem</span>
+<span>Suspicious Activity</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg hover:translate-x-1 transition-transform duration-200 Active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="file_download">file_download</span>
+<span>Export</span>
+</a>
+</nav>
+<div class="px-4 py-2 mt-auto">
+<span class="text-[10px] uppercase tracking-widest text-outline-variant font-bold">v2.4.0</span>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col min-w-0">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-6 py-4 bg-[#f7f9fb] dark:bg-slate-950 docked full-width top-0 no-line-rule tonal-shift flat no-shadows tap-highlight-transparent">
+<div class="flex items-center gap-4">
+<span class="text-emerald-900 dark:text-emerald-50 font-black tracking-tighter text-lg">Waste Ops</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-600 dark:text-slate-400 hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-outline-variant overflow-hidden border border-white">
+<img class="w-full h-full object-cover" data-alt="close-up profile photo of a male administrator in soft focus lighting with a professional neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0-jANKXe2XCSQAd9-ohioTs1B7C6K2EfLUXaqj7qNeSWg1Xna2BnJAMHkk0D_2yDT7L22s52Lfz_uZkoZmBLJjUhRDNSHt6IH3RUim3Lm8QHE2JA6Su2SpGR4HhIExYEmgzM9X3DnLJFwtxgXLScMW8DIN3q-II88ViqyC7chkqSl_iNUC4LscD9HKBFU3p82pzap9kpf-farstwQa1q41YFhoPjSDTP-cJFw99YoGxWNoRlvKgEWTMZeUOyYncKlTpjAjKnhBA"/>
+</div>
+</div>
+</header>
+<!-- Dashboard Body -->
+<div class="p-6 md:p-8 space-y-8">
+<!-- Stats Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Total Pickups -->
+<div class="bg-surface-container-lowest p-6 rounded-xl transition-all duration-300 hover:shadow-lg">
+<div class="flex justify-between items-start mb-4">
+<span class="text-sm font-medium text-on-surface-variant">Total Pickups</span>
+<span class="material-symbols-outlined text-primary" data-icon="local_shipping">local_shipping</span>
+</div>
+<div class="text-[2.25rem] font-bold text-on-surface leading-none">450</div>
+<div class="mt-2 flex items-center gap-1 text-primary text-xs font-bold">
+<span class="material-symbols-outlined text-xs" data-icon="trending_up">trending_up</span>
+<span>+12% from last shift</span>
+</div>
+</div>
+<!-- Completed -->
+<div class="bg-surface-container-lowest p-6 rounded-xl transition-all duration-300 hover:shadow-lg">
+<div class="flex justify-between items-start mb-4">
+<span class="text-sm font-medium text-on-surface-variant">Completed</span>
+<span class="material-symbols-outlined text-secondary" data-icon="check_circle">check_circle</span>
+</div>
+<div class="text-[2.25rem] font-bold text-on-surface leading-none">410</div>
+<div class="mt-2 w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[91%]"></div>
+</div>
+</div>
+<!-- Flagged -->
+<div class="bg-surface-container-lowest p-6 rounded-xl transition-all duration-300 hover:shadow-lg">
+<div class="flex justify-between items-start mb-4">
+<span class="text-sm font-medium text-on-surface-variant">Flagged</span>
+<span class="material-symbols-outlined text-error" data-icon="flag">flag</span>
+</div>
+<div class="text-[2.25rem] font-bold text-on-surface leading-none">12</div>
+<div class="mt-2 flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[10px] font-bold uppercase tracking-tight">Requires Action</span>
+</div>
+</div>
+</section>
+<!-- Map Section (Main Content) -->
+<section class="relative bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm aspect-[16/9] md:aspect-auto md:h-[600px]">
+<div class="absolute inset-0 z-0">
+<!-- Simulated Map Container -->
+<img class="w-full h-full object-cover opacity-80 grayscale-[30%]" data-alt="a clean, minimalist topographic map of an urban city center with soft grey and blue tones, highlighted transit routes" data-location="San Francisco" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUU4DqzratI357w1EteCaXQTQDkg-2IX4N_ZrxKPeZ6nGA3eY9Mw9uYAoSIe0WZaPSsCyJ9jcqEu2itCCIj3g7BAZcMT2E8drv9kY1rCmoqA4x_baXZ3l2soM1lUOYIJyUjzpddoPOZPQu28pjot9MeA9KfoMTq5loD3Kl4r5jFuIuyn82c9Y3-86ru1B6Qg-iaFjO9lsIv3UtmYqYupfSa7BgCLXJ5_LHFy0AdpRs5Q7dI4wCbNqx2f8V2A8rR_NgvobpMON_Yg"/>
+<!-- Map Pins (Absolute Positioned) -->
+<div class="absolute top-1/4 left-1/3 transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer">
+<div class="bg-primary-container text-on-primary-container p-2 rounded-full shadow-lg scale-100 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-lg" data-icon="recycling">recycling</span>
+</div>
+<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden group-hover:block bg-white px-3 py-1.5 rounded-lg shadow-xl border border-outline-variant/20 whitespace-nowrap z-10">
+<p class="text-xs font-bold">Route 42-A</p>
+<p class="text-[10px] text-on-surface-variant">Bin Fullness: 88%</p>
+</div>
+</div>
+<div class="absolute top-1/2 right-1/4 transform translate-x-1/2 -translate-y-1/2 group cursor-pointer">
+<div class="bg-error-container text-on-error-container p-2 rounded-full shadow-lg animate-pulse scale-100 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-lg" data-icon="warning">warning</span>
+</div>
+<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden group-hover:block bg-white px-3 py-1.5 rounded-lg shadow-xl border border-outline-variant/20 whitespace-nowrap z-10">
+<p class="text-xs font-bold text-error">Suspicious Item</p>
+<p class="text-[10px] text-on-surface-variant">Sector G-9</p>
+</div>
+</div>
+<div class="absolute bottom-1/3 left-1/2 transform -translate-x-1/2 group cursor-pointer">
+<div class="bg-secondary-container text-on-secondary-container p-2 rounded-full shadow-lg scale-100 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-lg" data-icon="local_shipping" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+</div>
+</div>
+</div>
+<!-- Floating Map Controls -->
+<div class="absolute top-6 left-6 flex flex-col gap-2">
+<div class="bg-white/80 backdrop-blur-md p-1.5 rounded-xl shadow-lg flex flex-col gap-1 border border-white/40">
+<button class="p-2 hover:bg-surface-container rounded-lg transition-colors"><span class="material-symbols-outlined" data-icon="add">add</span></button>
+<div class="h-px bg-outline-variant/20 mx-2"></div>
+<button class="p-2 hover:bg-surface-container rounded-lg transition-colors"><span class="material-symbols-outlined" data-icon="remove">remove</span></button>
+</div>
+<button class="bg-white/80 backdrop-blur-md p-3 rounded-xl shadow-lg border border-white/40 hover:bg-white transition-colors">
+<span class="material-symbols-outlined" data-icon="my_location">my_location</span>
+</button>
+</div>
+<!-- Map Overlay Legend -->
+<div class="absolute bottom-6 right-6 bg-white/90 backdrop-blur-xl p-4 rounded-2xl shadow-2xl border border-white/40 max-w-xs w-full">
+<h4 class="text-xs font-black uppercase tracking-widest text-outline mb-3">Live Fleet Status</h4>
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="text-xs font-medium">On Route</span>
+</div>
+<span class="text-xs font-bold">24 Units</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<span class="text-xs font-medium">Offloading</span>
+</div>
+<span class="text-xs font-bold">06 Units</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<span class="text-xs font-medium">Issues</span>
+</div>
+<span class="text-xs font-bold text-error">02 Units</span>
+</div>
+</div>
+<button class="mt-4 w-full py-2 bg-primary text-on-primary rounded-lg text-xs font-bold shadow-[0_4px_12px_rgba(0,105,72,0.3)] hover:opacity-90 transition-opacity">
+                            View Full Fleet
+                        </button>
+</div>
+</section>
+<!-- Activity Feed - Editorial Style -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<div class="lg:col-span-8 space-y-6">
+<div class="flex items-center justify-between">
+<h2 class="text-xl font-bold tracking-tight">Recent Dispatches</h2>
+<button class="text-primary text-xs font-bold flex items-center gap-1 hover:underline">
+                                View Logs <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<div class="space-y-4">
+<div class="bg-white p-5 rounded-2xl flex items-center gap-4 transition-transform hover:translate-x-1 duration-300">
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="restore_from_trash">restore_from_trash</span>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-sm">Zone 4: Commercial District</h4>
+<p class="text-xs text-on-surface-variant">Vehicle #8822 completed collection • 14:22 PM</p>
+</div>
+<div class="text-right">
+<span class="px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed text-[10px] font-bold uppercase">Success</span>
+</div>
+</div>
+<div class="bg-white p-5 rounded-2xl flex items-center gap-4 transition-transform hover:translate-x-1 duration-300">
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-error">
+<span class="material-symbols-outlined" data-icon="report">report</span>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-sm">Zone 12: Residential Park</h4>
+<p class="text-xs text-on-surface-variant">Unauthorized dumping flagged by AI sensor • 13:58 PM</p>
+</div>
+<div class="text-right">
+<span class="px-3 py-1 rounded-full bg-error-container text-on-error-container text-[10px] font-bold uppercase">Review</span>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-4 bg-primary text-on-primary rounded-3xl p-8 flex flex-col justify-between overflow-hidden relative">
+<div class="relative z-10">
+<h3 class="text-2xl font-bold mb-2">Weekly Goal</h3>
+<p class="text-primary-fixed/80 text-sm mb-6">You've reached 82% of your efficiency target for this sprint.</p>
+<div class="space-y-4">
+<div class="flex justify-between text-xs font-bold">
+<span>Progress</span>
+<span>82%</span>
+</div>
+<div class="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+<div class="bg-white h-full w-[82%]"></div>
+</div>
+</div>
+</div>
+<button class="relative z-10 mt-12 bg-white text-primary px-6 py-3 rounded-xl font-bold text-sm hover:scale-[1.02] transition-transform">
+                            Generate Report
+                        </button>
+<!-- Decorative background element -->
+<div class="absolute -bottom-10 -right-10 w-48 h-48 bg-primary-container rounded-full opacity-20"></div>
+</div>
+</section>
+</div>
+</main>
+</div>
+<!-- Mobile NavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-t-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.06)]">
+<a class="flex flex-col items-center justify-center bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-100 rounded-xl px-4 py-1 font-['Inter'] text-[0.75rem] font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 font-['Inter'] text-[0.75rem] font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="route">route</span>
+<span>Route</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 px-4 py-1 font-['Inter'] text-[0.75rem] font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span>History</span>
+</a>
+</nav>
+</body></html>
