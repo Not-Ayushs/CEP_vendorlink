@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:swm_vendor/services/supabase_service.dart';
+import 'package:swm_vendor/services/location_service.dart';
 import 'package:swm_vendor/theme/app_theme.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'driver_vendor_detail_screen.dart';
@@ -18,7 +20,11 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
   List<Map<String, dynamic>> _collected = [];
   List<Map<String, dynamic>> _all = [];
   Map<String, dynamic>? _driverProfile;
-  
+
+  LatLng? _userLocation;
+  bool _locationDenied = false;
+  LocationPermission _locationPermission = LocationPermission.denied;
+
   bool _loading = true;
   bool _isMapView = false;
   int? _expandedId;
@@ -49,7 +55,30 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
       _pending = _all.where((r) => r['status'] == 'Pending').toList();
       _collected = _all.where((r) => r['status'] == 'Collected').toList();
     } catch (_) {}
-    if (mounted) setState(() => _loading = false);
+
+    // Fetch real GPS location on every load
+    _locationPermission = await LocationService.requestPermission();
+    if (_locationPermission == LocationPermission.always ||
+        _locationPermission == LocationPermission.whileInUse) {
+      _userLocation = await LocationService.getCurrentLocation();
+      _locationDenied = _userLocation == null;
+    } else {
+      _userLocation = null;
+      _locationDenied = true;
+    }
+
+    if (mounted) {
+      setState(() => _loading = false);
+      if (_locationDenied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(LocationService.permissionMessage(_locationPermission)),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   List<Map<String, dynamic>> get _filteredByStatus =>
@@ -66,23 +95,47 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
     }).toList();
   }
 
-  // Generate deterministic mock coordinates based on Vendor ID near Mumbai
+  // Generate deterministic coordinates anchored to the REAL user location.
+  // Falls back to Mumbai center if location is unavailable.
   LatLng _getMockLocation(dynamic vendorIdRaw) {
+    final center = _userLocation ?? _mumbaiCenter;
     final vId = int.tryParse(vendorIdRaw.toString()) ?? 1;
-    final offsetLat = (vId % 15) * 0.008 * (vId % 2 == 0 ? 1 : -1);
-    final offsetLng = (vId % 10) * 0.008 * (vId % 3 == 0 ? 1 : -1);
-    return LatLng(_mumbaiCenter.latitude + offsetLat, _mumbaiCenter.longitude + offsetLng);
+    final offsetLat = (vId % 15) * 0.006 * (vId % 2 == 0 ? 1 : -1);
+    final offsetLng = (vId % 10) * 0.006 * (vId % 3 == 0 ? 1 : -1);
+    return LatLng(center.latitude + offsetLat, center.longitude + offsetLng);
   }
 
   Future<void> _launchNavigation(LatLng loc) async {
-    final url = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open map navigation')),
-        );
+    // On Android 11+, canLaunchUrl() returns false for https:// URLs unless
+    // <queries> intents are declared. We skip the check and call launchUrl
+    // directly — it handles the failure case cleanly.
+
+    // Primary: Google Maps navigation URL (works on iOS + Android via browser/app)
+    final mapsUrl = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}');
+
+    // Fallback: geo: URI — natively opens the Maps app on Android
+    final geoUrl = Uri.parse('geo:${loc.latitude},${loc.longitude}?q=${loc.latitude},${loc.longitude}');
+
+    try {
+      final launched = await launchUrl(mapsUrl, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        // Try geo: URI as fallback (Android-native)
+        await launchUrl(geoUrl, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      // Last resort: try geo: URI
+      try {
+        await launchUrl(geoUrl, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open maps. Install Google Maps and try again.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
@@ -233,70 +286,118 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
   }
 
   Widget _buildMobileFriendlyMap() {
+    final mapCenter = _userLocation ?? _mumbaiCenter;
+
+    // Build vendor markers
+    final vendorMarkers = _filteredAndSearched.map((r) {
+      final loc = _getMockLocation(r['vendorId']);
+      final isCollected = r['status'] == 'Collected';
+      final isSelected = _expandedId == r['id'];
+      return Marker(
+        point: loc,
+        width: isSelected ? 50 : 40,
+        height: isSelected ? 50 : 40,
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              if (_expandedId == r['id']) {
+                _expandedId = null;
+              } else {
+                _expandedId = r['id'];
+                _mapController.move(loc, 14.0);
+              }
+            });
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isCollected ? Colors.green : Colors.orange,
+              border: Border.all(
+                color: Colors.white,
+                width: isSelected ? 3 : 2,
+              ),
+              boxShadow: const [
+                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+              ],
+            ),
+            child: Icon(
+              isCollected ? Icons.check : Icons.local_shipping_rounded,
+              color: Colors.white,
+              size: isSelected ? 24 : 20,
+            ),
+          ),
+        ),
+      );
+    }).toList();
+
+    // "You are here" blue marker
+    if (_userLocation != null) {
+      vendorMarkers.add(
+        Marker(
+          point: _userLocation!,
+          width: 48,
+          height: 48,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.blue[600],
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: const [
+                BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 3))
+              ],
+            ),
+            child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 22),
+          ),
+        ),
+      );
+    }
+
     return ClipRRect(
       borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(20), 
-        topRight: Radius.circular(20)
+        topLeft: Radius.circular(20),
+        topRight: Radius.circular(20),
       ),
       child: Stack(
         children: [
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _mumbaiCenter,
-              initialZoom: 12.0,
+              initialCenter: mapCenter,
+              initialZoom: 13.0,
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.swmvendor.app',
               ),
-              MarkerLayer(
-                markers: _filteredAndSearched.map((r) {
-                  final loc = _getMockLocation(r['vendorId']);
-                  final isCollected = r['status'] == 'Collected';
-                  final isSelected = _expandedId == r['id'];
-                  return Marker(
-                    point: loc,
-                    width: isSelected ? 50 : 40,
-                    height: isSelected ? 50 : 40,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          if (_expandedId == r['id']) {
-                            _expandedId = null;
-                            _isMapView = false; // Optional logic: could stay on map, but user asked to open map from card
-                          } else {
-                            _expandedId = r['id'];
-                            _mapController.move(loc, 14.0);
-                          }
-                        });
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isCollected ? Colors.green : Colors.orange,
-                          border: Border.all(
-                            color: Colors.white,
-                            width: isSelected ? 3 : 2,
-                          ),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
-                          ],
-                        ),
-                        child: Icon(
-                          isCollected ? Icons.check : Icons.local_shipping_rounded,
-                          color: Colors.white,
-                          size: isSelected ? 24 : 20,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
+              MarkerLayer(markers: vendorMarkers),
             ],
           ),
+
+          // "Re-center" FAB
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              elevation: 3,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => _mapController.move(mapCenter, 13.0),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(
+                    _userLocation != null ? Icons.my_location_rounded : Icons.location_searching_rounded,
+                    color: _userLocation != null ? Colors.blue[700] : Colors.grey[600],
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // Floating Vendor Card Overlay on Map
           if (_expandedId != null)
             Positioned(
@@ -341,7 +442,7 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
         itemCount: _filteredAndSearched.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, i) {
           final r = _filteredAndSearched[i];
           return _buildVendorExpandableTile(r, forceExpand: false);

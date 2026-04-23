@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:swm_vendor/services/location_service.dart';
 
-class VendorStatusScreen extends StatelessWidget {
+class VendorStatusScreen extends StatefulWidget {
   final String currentStatus;
   final String declaredWaste;
   final String wasteType;
@@ -15,8 +16,27 @@ class VendorStatusScreen extends StatelessWidget {
   });
 
   @override
+  State<VendorStatusScreen> createState() => _VendorStatusScreenState();
+}
+
+class _VendorStatusScreenState extends State<VendorStatusScreen> {
+  LatLng? _userLocation;
+  static const LatLng _fallback = LatLng(19.0760, 72.8777);
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLocation();
+  }
+
+  Future<void> _fetchLocation() async {
+    final loc = await LocationService.getCurrentLocation();
+    if (mounted) setState(() => _userLocation = loc);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bool isPending = currentStatus == 'Pending Pickup';
+    final bool isPending = widget.currentStatus == 'Pending Pickup';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -47,7 +67,7 @@ class VendorStatusScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.yellow[50], // Yellow for pending
+        color: Colors.yellow[50],
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.orange[200]!),
       ),
@@ -68,7 +88,7 @@ class VendorStatusScreen extends StatelessWidget {
           const SizedBox(height: 16),
           _buildInfoRow('Contact', '+91 9876543210'),
           const SizedBox(height: 16),
-          _buildInfoRow('Declared Load', '$declaredWaste ($wasteType)'),
+          _buildInfoRow('Declared Load', '${widget.declaredWaste} (${widget.wasteType})'),
         ],
       ),
     );
@@ -79,7 +99,7 @@ class VendorStatusScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: Colors.green[50], // Green for collected
+        color: Colors.green[50],
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.green[200]!),
       ),
@@ -115,7 +135,12 @@ class VendorStatusScreen extends StatelessWidget {
   }
 
   Widget _buildMapView(bool isPending) {
-    const loc = LatLng(19.0760, 72.8777);
+    // Vendor location = user's real GPS (they ARE the vendor)
+    final vendorLoc = _userLocation ?? _fallback;
+
+    // Mock driver location ~600m away from vendor
+    final driverLoc = LatLng(vendorLoc.latitude - 0.005, vendorLoc.longitude + 0.004);
+
     return Container(
       height: 220,
       decoration: BoxDecoration(
@@ -133,9 +158,9 @@ class VendorStatusScreen extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: FlutterMap(
-          options: const MapOptions(
-            initialCenter: loc,
-            initialZoom: 13.0,
+          options: MapOptions(
+            initialCenter: vendorLoc,
+            initialZoom: 14.0,
           ),
           children: [
             TileLayer(
@@ -144,10 +169,11 @@ class VendorStatusScreen extends StatelessWidget {
             ),
             MarkerLayer(
               markers: [
+                // Vendor (user) location marker
                 Marker(
-                  point: loc,
-                  width: 40,
-                  height: 40,
+                  point: vendorLoc,
+                  width: 44,
+                  height: 44,
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -162,15 +188,16 @@ class VendorStatusScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+                // Mock driver position marker (only when pending)
                 if (isPending)
                   Marker(
-                    point: const LatLng(19.0700, 72.8700), // mock driver nearby
-                    width: 40,
-                    height: 40,
+                    point: driverLoc,
+                    width: 44,
+                    height: 44,
                     child: Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.blue,
+                        color: Colors.blue[700],
                         border: Border.all(color: Colors.white, width: 2),
                         boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
                       ),
@@ -185,4 +212,3 @@ class VendorStatusScreen extends StatelessWidget {
     );
   }
 }
-

@@ -276,9 +276,29 @@ class _UnifiedLoginScreenState extends State<UnifiedLoginScreen>
         _tabController.animateTo(0);
       }
     } on AuthException catch (e) {
-      setState(() => _errorMsg = e.message);
+      String msg = e.message;
+      if (msg.toLowerCase().contains('already registered') ||
+          msg.toLowerCase().contains('already exists') ||
+          msg.toLowerCase().contains('user already')) {
+        msg = 'This email is already registered. Please sign in instead.';
+      } else if (msg.toLowerCase().contains('weak password')) {
+        msg = 'Password is too weak. Use at least 6 characters.';
+      }
+      setState(() => _errorMsg = msg);
     } catch (e) {
-      setState(() => _errorMsg = e.toString());
+      // Friendly mapping for known messages thrown by signUpAndCreateProfile
+      String msg = e.toString();
+      if (msg.contains('already registered') || msg.contains('already exists')) {
+        msg = 'This email is already registered. Please sign in instead.';
+      } else if (msg.contains('Invalid role')) {
+        msg = 'Invalid role selected. Please try again.';
+      } else if (msg.contains('Sign-up failed')) {
+        msg = 'Registration failed. Please check your details and try again.';
+      } else {
+        // Strip the "Exception:" prefix Dart adds
+        msg = msg.replaceFirst('Exception: ', '');
+      }
+      setState(() => _errorMsg = msg);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -387,7 +407,7 @@ class _UnifiedLoginScreenState extends State<UnifiedLoginScreen>
 
               // ── Tab Content ───────────────────────────────────────────────
               SizedBox(
-                height: 280,
+                height: 380,
                 child: TabBarView(
                   controller: _tabController,
                   children: [_buildSignIn(), _buildRegister()],
@@ -460,8 +480,11 @@ class _UnifiedLoginScreenState extends State<UnifiedLoginScreen>
   }
 
   Widget _buildRegister() {
-    return Column(
-      children: [
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
         TextField(
           controller: _regNameCtrl,
           decoration: InputDecoration(
@@ -524,7 +547,8 @@ class _UnifiedLoginScreenState extends State<UnifiedLoginScreen>
               : const Text('Create Account',
                   style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
         ),
-      ],
+        ],
+      ),
     );
   }
 

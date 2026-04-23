@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:swm_vendor/services/supabase_service.dart';
+import 'package:swm_vendor/services/location_service.dart';
 import 'package:swm_vendor/theme/app_theme.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -14,6 +15,9 @@ class DriverRouteTab extends StatefulWidget {
 class _DriverRouteTabState extends State<DriverRouteTab> {
   List<Map<String, dynamic>> _pending = [];
   bool _loading = true;
+  LatLng? _userLocation;
+
+  static const LatLng _fallbackCenter = LatLng(19.0760, 72.8777);
 
   @override
   void initState() {
@@ -26,7 +30,16 @@ class _DriverRouteTabState extends State<DriverRouteTab> {
     try {
       _pending = await SupabaseService.getPendingRecords();
     } catch (_) {}
+    _userLocation = await LocationService.getCurrentLocation();
     if (mounted) setState(() => _loading = false);
+  }
+
+  LatLng _vendorLocation(dynamic vendorIdRaw) {
+    final center = _userLocation ?? _fallbackCenter;
+    final vId = int.tryParse(vendorIdRaw.toString()) ?? 1;
+    final offsetLat = (vId % 15) * 0.006 * (vId % 2 == 0 ? 1 : -1);
+    final offsetLng = (vId % 10) * 0.006 * (vId % 3 == 0 ? 1 : -1);
+    return LatLng(center.latitude + offsetLat, center.longitude + offsetLng);
   }
 
   @override
@@ -71,9 +84,9 @@ class _DriverRouteTabState extends State<DriverRouteTab> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: FlutterMap(
-                options: const MapOptions(
-                  initialCenter: LatLng(19.0760, 72.8777),
-                  initialZoom: 11.0,
+                options: MapOptions(
+                  initialCenter: _userLocation ?? _fallbackCenter,
+                  initialZoom: 13.0,
                 ),
                 children: [
                   TileLayer(
@@ -81,27 +94,42 @@ class _DriverRouteTabState extends State<DriverRouteTab> {
                     userAgentPackageName: 'com.swmvendor.app',
                   ),
                   MarkerLayer(
-                    markers: _pending.map((r) {
-                      final vendorId = r['vendorId'];
-                      final vId = int.tryParse(vendorId.toString()) ?? 1;
-                      final offsetLat = (vId % 15) * 0.008 * (vId % 2 == 0 ? 1 : -1);
-                      final offsetLng = (vId % 10) * 0.008 * (vId % 3 == 0 ? 1 : -1);
-                      final loc = LatLng(19.0760 + offsetLat, 72.8777 + offsetLng);
-                      return Marker(
-                        point: loc,
-                        width: 40,
-                        height: 40,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.orange,
-                            border: Border.all(color: Colors.white, width: 2),
-                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                    markers: [
+                      // Vendor stop markers
+                      ..._pending.map((r) {
+                        final loc = _vendorLocation(r['vendorId']);
+                        return Marker(
+                          point: loc,
+                          width: 40,
+                          height: 40,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.orange,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                            ),
+                            child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 20),
                           ),
-                          child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 20),
+                        );
+                      }),
+                      // Current user / driver location marker
+                      if (_userLocation != null)
+                        Marker(
+                          point: _userLocation!,
+                          width: 48,
+                          height: 48,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.blue[700],
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 6)],
+                            ),
+                            child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 22),
+                          ),
                         ),
-                      );
-                    }).toList(),
+                    ],
                   ),
                 ],
               ),

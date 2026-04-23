@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:swm_vendor/services/supabase_service.dart';
+import 'package:swm_vendor/services/location_service.dart';
 import 'package:swm_vendor/theme/app_theme.dart';
 
 class VendorDeclareWasteScreen extends StatefulWidget {
@@ -17,6 +19,12 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
   String _wasteType = 'Organic';
   bool _submitting = false;
 
+  // Location state
+  double? _lat;
+  double? _lng;
+  bool _locationFetching = false;
+  String? _locationError;
+
   // Waste types with icons and colors
   static const List<_WasteOption> _wasteTypes = [
     _WasteOption('Organic', Icons.eco_rounded, Color(0xFF2E7D32)),
@@ -26,10 +34,68 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
     _WasteOption('E-Waste', Icons.devices_rounded, Color(0xFF7B1FA2)),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _fetchLocation();
+  }
+
+  // ── LOCATION ─────────────────────────────────────────────────────────────
+
+  Future<void> _fetchLocation() async {
+    setState(() {
+      _locationFetching = true;
+      _locationError = null;
+    });
+
+    try {
+      final permission = await LocationService.requestPermission();
+
+      if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          _locationError = 'Location permission permanently denied. '
+              'Enable it in app settings to attach your location.';
+          _locationFetching = false;
+        });
+        return;
+      }
+
+      if (permission == LocationPermission.denied) {
+        setState(() {
+          _locationError = 'Location permission denied. '
+              'Your pickup location will not be recorded.';
+          _locationFetching = false;
+        });
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      setState(() {
+        _lat = position.latitude;
+        _lng = position.longitude;
+        _locationFetching = false;
+      });
+    } catch (e) {
+      setState(() {
+        _locationError = 'Could not get location. '
+            'Your pickup location will not be recorded.';
+        _locationFetching = false;
+      });
+    }
+  }
+
+  // ── SUBMIT ────────────────────────────────────────────────────────────────
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Show confirmation dialog
+    // Show confirmation dialog — includes location status
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -66,6 +132,29 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
                     Text('Notes: ${_notesCtrl.text.trim()}',
                         style: const TextStyle(color: Colors.black54, fontSize: 13)),
                   ],
+                  const SizedBox(height: 10),
+                  // Location confirmation row
+                  Row(
+                    children: [
+                      Icon(
+                        _lat != null ? Icons.location_on_rounded : Icons.location_off_rounded,
+                        size: 16,
+                        color: _lat != null ? Colors.green[700] : Colors.orange[700],
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _lat != null
+                              ? 'Location: ${_lat!.toStringAsFixed(5)}, ${_lng!.toStringAsFixed(5)}'
+                              : 'Location: not captured',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _lat != null ? Colors.green[700] : Colors.orange[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -97,15 +186,19 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
         declaredWaste: double.parse(_amountCtrl.text),
         wasteType: _wasteType,
         notes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+        lat: _lat,
+        lng: _lng,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                SizedBox(width: 10),
-                Text('Waste declared successfully!'),
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Text(_lat != null
+                    ? 'Waste declared with location!'
+                    : 'Waste declared successfully!'),
               ],
             ),
             backgroundColor: Colors.green[700],
@@ -118,7 +211,8 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -136,15 +230,23 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text('Declare Waste'),
-          backgroundColor: Colors.white, elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.black)),
+      appBar: AppBar(
+        title: const Text('Declare Waste'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Form(
             key: _formKey,
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+
+              // ── Location status banner ───────────────────────────────────────
+              _buildLocationBanner(),
+              const SizedBox(height: 20),
+
               // ── Amount ──────────────────────────────────────────────────────
               const Text('Waste Amount',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -267,6 +369,92 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
             ]),
           ),
         ),
+      ),
+    );
+  }
+
+  // ── Location banner widget ────────────────────────────────────────────────
+
+  Widget _buildLocationBanner() {
+    if (_locationFetching) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.blue[100]!),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 10),
+            Text('Getting your location…',
+                style: TextStyle(fontSize: 13, color: Colors.blue[800])),
+          ],
+        ),
+      );
+    }
+
+    if (_lat != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.green[50],
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.green[200]!),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.location_on_rounded, size: 18, color: Colors.green[700]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Location captured (${_lat!.toStringAsFixed(5)}, ${_lng!.toStringAsFixed(5)})',
+                style: TextStyle(fontSize: 12, color: Colors.green[800]),
+              ),
+            ),
+            // Retry button
+            IconButton(
+              icon: Icon(Icons.refresh_rounded, size: 18, color: Colors.green[700]),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: _locationFetching ? null : _fetchLocation,
+              tooltip: 'Refresh location',
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Error / denied state
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.orange[200]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.location_off_rounded, size: 18, color: Colors.orange[700]),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _locationError ?? 'Location unavailable. Declaration will proceed without coordinates.',
+              style: TextStyle(fontSize: 12, color: Colors.orange[800]),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.refresh_rounded, size: 18, color: Colors.orange[700]),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: _locationFetching ? null : _fetchLocation,
+            tooltip: 'Retry',
+          ),
+        ],
       ),
     );
   }

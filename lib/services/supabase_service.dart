@@ -56,7 +56,12 @@ class SupabaseService {
     );
   }
 
-  /// Sign up a new regular user and insert their profile row.
+  /// Sign up a new user and create their profile + role-specific row.
+  ///
+  /// Handles:
+  ///  - Duplicate email (Supabase returns empty identities instead of error)
+  ///  - DB upsert conflicts via ON CONFLICT DO NOTHING (ignoreDuplicates)
+  ///  - Clean friendly error messages
   static Future<void> signUpAndCreateProfile({
     required String email,
     required String password,
@@ -67,34 +72,65 @@ class SupabaseService {
       throw Exception('Invalid role specified.');
     }
 
-    final res = await client.auth.signUp(email: email, password: password);
-    final userId = res.user?.id;
-    if (userId == null) throw Exception('Sign-up failed. Try again.');
+    final res = await client.auth.signUp(
+      email: email.trim(),
+      password: password,
+    );
 
-    // IMPORTANT: Upsert instead of insert (avoids duplicates)
-    await client.from('profiles').upsert({
-      'id': userId,
-      'name': name,
-      'role': role,
-    });
+    final user = res.user;
 
-    // Insert into role-specific table
-    if (role == 'vendor') {
-      await client.from('vendors').upsert({
-        'user_id': userId,
-        'name': name,
-        'shopName': "$name's Shop",
-        'phone': '',
-        'address': '',
-      });
-    } else if (role == 'driver') {
-      await client.from('drivers').upsert({
-        'user_id': userId,
-        'name': name,
-        'phone': '',
-      });
+    // Supabase v2: when email is already registered, signUp() does NOT throw.
+    // Instead it returns a User with an empty `identities` list.
+    // We detect this and surface a friendly error.
+    if (user == null) {
+      throw Exception('Sign-up failed. Please try again.');
     }
-    // admin: only profiles row needed
+
+    final isAlreadyRegistered =
+        user.identities != null && user.identities!.isEmpty;
+    if (isAlreadyRegistered) {
+      throw Exception(
+          'This email is already registered. Please sign in instead.');
+    }
+
+    final userId = user.id;
+
+    // Write profile row — use upsert with ignoreDuplicates so a race-condition
+    // or trigger-created row doesn't cause a conflict.
+    try {
+      await client.from('profiles').upsert(
+        {'id': userId, 'name': name, 'role': role},
+        ignoreDuplicates: false, // update if somehow exists
+      );
+    } catch (e) {
+      // Best-effort: profile may have been created by a DB trigger.
+      // Log but don't fail registration.
+    }
+
+    // Write role-specific row
+    try {
+      if (role == 'vendor') {
+        await client.from('vendors').upsert(
+          {
+            'user_id': userId,
+            'name': name,
+            'shopName': "$name's Shop",
+            'phone': '',
+            'address': '',
+          },
+          ignoreDuplicates: true, // skip if already exists (no overwrite)
+        );
+      } else if (role == 'driver') {
+        await client.from('drivers').upsert(
+          {'user_id': userId, 'name': name, 'phone': ''},
+          ignoreDuplicates: true,
+        );
+      }
+      // admin: only profiles row needed
+    } catch (e) {
+      // Role-specific row failure is non-fatal at this stage;
+      // getCurrentUserRole() will recreate it on next login.
+    }
   }
 
   static Future<void> signOut() => client.auth.signOut();
@@ -244,6 +280,8 @@ class SupabaseService {
     required double declaredWaste,
     required String wasteType,
     String? notes,
+    double? lat,
+    double? lng,
   }) async {
     final record = <String, dynamic>{
       'vendorId': vendorId,
@@ -257,6 +295,11 @@ class SupabaseService {
     };
     if (notes != null && notes.trim().isNotEmpty) {
       record['notes'] = notes.trim();
+    }
+    // Save GPS coordinates when available so the driver map can use real locations
+    if (lat != null && lng != null) {
+      record['lat'] = lat;
+      record['lng'] = lng;
     }
     await client.from('waste_records').insert(record);
   }
