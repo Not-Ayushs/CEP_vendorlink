@@ -17,6 +17,9 @@ create policy "Users can read own profile" on profiles
 create policy "Users can insert own profile" on profiles
   for insert with check (auth.uid() = id);
 
+create policy "Users can update own profile" on profiles
+  for update using (auth.uid() = id);
+
 -- Allow admin reads from service-role (needed for RoleRouter lookup)
 create policy "Service role can read all profiles" on profiles
   for select using (true);  -- simplify for prototype

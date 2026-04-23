@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class AdminDashboardTab extends StatelessWidget {
   final int totalPickups;
   final int completed;
   final int pending;
   final int flagged;
+  final List<Map<String, dynamic>> records;
   final VoidCallback? onRefresh;
 
   const AdminDashboardTab({
@@ -13,6 +16,7 @@ class AdminDashboardTab extends StatelessWidget {
     required this.completed,
     required this.pending,
     required this.flagged,
+    required this.records,
     this.onRefresh,
   });
 
@@ -78,17 +82,51 @@ class AdminDashboardTab extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey[300]!),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.map, size: 56, color: Colors.black26),
-                const SizedBox(height: 12),
-                const Text('Map View Placeholder',
-                    style: TextStyle(fontSize: 16, color: Colors.black45, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Text('$totalPickups records • $pending pending • $flagged flagged',
-                    style: const TextStyle(fontSize: 12, color: Colors.black38)),
-              ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: FlutterMap(
+                options: const MapOptions(
+                  initialCenter: LatLng(19.0760, 72.8777),
+                  initialZoom: 11.0,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.swmvendor.app',
+                  ),
+                  MarkerLayer(
+                    markers: records.map((r) {
+                      final vendorId = r['vendorId'];
+                      final vId = int.tryParse(vendorId.toString()) ?? 1;
+                      final offsetLat = (vId % 15) * 0.008 * (vId % 2 == 0 ? 1 : -1);
+                      final offsetLng = (vId % 10) * 0.008 * (vId % 3 == 0 ? 1 : -1);
+                      final loc = LatLng(19.0760 + offsetLat, 72.8777 + offsetLng);
+                      final isCollected = r['status'] == 'Collected';
+                      
+                      // Check if it's flagged (we just copy logic from the main screen roughly, or we pass flagged as a boolean but easier to just guess or make it grey)
+                      // Actually, let's just make Collected green, Pending orange.
+                      return Marker(
+                        point: loc,
+                        width: isCollected ? 30 : 40,
+                        height: isCollected ? 30 : 40,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isCollected ? Colors.green : Colors.orange,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                          ),
+                          child: Icon(
+                            isCollected ? Icons.check : Icons.local_shipping_rounded,
+                            color: Colors.white,
+                            size: isCollected ? 16 : 20,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),

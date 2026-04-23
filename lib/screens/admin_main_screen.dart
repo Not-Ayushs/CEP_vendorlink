@@ -88,6 +88,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           completed: _completed,
           pending: _pending,
           flagged: _flagged.length,
+          records: _allRecords,
           onRefresh: _loadData,
         );
       case 1:

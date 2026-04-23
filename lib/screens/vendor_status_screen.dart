@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class VendorStatusScreen extends StatelessWidget {
   final String currentStatus;
@@ -27,9 +29,14 @@ class VendorStatusScreen extends StatelessWidget {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
-          child: isPending
-              ? _buildPendingView()
-              : _buildCollectedView(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildMapView(isPending),
+              const SizedBox(height: 20),
+              isPending ? _buildPendingView() : _buildCollectedView(),
+            ],
+          ),
         ),
       ),
     );
@@ -106,4 +113,76 @@ class VendorStatusScreen extends StatelessWidget {
       ],
     );
   }
+
+  Widget _buildMapView(bool isPending) {
+    const loc = LatLng(19.0760, 72.8777);
+    return Container(
+      height: 220,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: FlutterMap(
+          options: const MapOptions(
+            initialCenter: loc,
+            initialZoom: 13.0,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.swmvendor.app',
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: loc,
+                  width: 40,
+                  height: 40,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isPending ? Colors.orange : Colors.green,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                    ),
+                    child: Icon(
+                      isPending ? Icons.storefront : Icons.check,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                if (isPending)
+                  Marker(
+                    point: const LatLng(19.0700, 72.8700), // mock driver nearby
+                    width: 40,
+                    height: 40,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.blue,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                      ),
+                      child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 20),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+

@@ -3,9 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Central Supabase service — single source of truth for all DB and Auth ops.
 class SupabaseService {
   // ─── CONFIG ──────────────────────────────────────────────────────────────
-  static const String supabaseUrl = 'https://brdieuduyciqzgihdfhl.supabase.co';
+  // static const String supabaseUrl = 'https://brdieuduyciqzgihdfhl.supabase.co';
+  static const String supabaseUrl = 'https://nidkxztxsjkberieynsf.supabase.co';
   static const String supabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyZGlldWR1eWNpcXpnaWhkZmhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxODA1NjYsImV4cCI6MjA5MTc1NjU2Nn0.zNUscSsPNK-3ZVyiycQI55yemsKaPCd7UamhcjkfmE8';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pZGt4enR4c2prYmVyaWV5bnNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NjE3NjEsImV4cCI6MjA5MjMzNzc2MX0.scjGDboldvNAzcIJehRyKlA5zaABsmqhA1fyTm16VvE';
 
   // ─── DEMO USERS (bypass email verification) ──────────────────────────────
   static const String demoPassword = 'demo1234';
@@ -62,12 +63,16 @@ class SupabaseService {
     required String name,
     required String role,
   }) async {
+    if (role != 'vendor' && role != 'driver' && role != 'admin') {
+      throw Exception('Invalid role specified.');
+    }
+
     final res = await client.auth.signUp(email: email, password: password);
     final userId = res.user?.id;
     if (userId == null) throw Exception('Sign-up failed. Try again.');
 
-    // Insert into profiles table
-    await client.from('profiles').insert({
+    // IMPORTANT: Upsert instead of insert (avoids duplicates)
+    await client.from('profiles').upsert({
       'id': userId,
       'name': name,
       'role': role,
@@ -75,7 +80,7 @@ class SupabaseService {
 
     // Insert into role-specific table
     if (role == 'vendor') {
-      await client.from('vendors').insert({
+      await client.from('vendors').upsert({
         'user_id': userId,
         'name': name,
         'shopName': "$name's Shop",
@@ -83,7 +88,7 @@ class SupabaseService {
         'address': '',
       });
     } else if (role == 'driver') {
-      await client.from('drivers').insert({
+      await client.from('drivers').upsert({
         'user_id': userId,
         'name': name,
         'phone': '',
@@ -100,28 +105,89 @@ class SupabaseService {
 
   /// Fetch role from `profiles` table. Returns null if not found.
   static Future<String?> getCurrentUserRole() async {
-    final userId = currentUser?.id;
-    if (userId == null) return null;
+    final user = currentUser;
+    if (user == null) return null;
 
     final res = await client
         .from('profiles')
         .select('role')
-        .eq('id', userId)
+        .eq('id', user.id)
         .maybeSingle();
 
-    return res?['role'] as String?;
+    final email = user.email?.toLowerCase().trim() ?? '';
+
+    // Auto-correct corrupted roles for demo accounts or handle missing demo profiles
+    if (demoUsers.containsKey(email)) {
+      final expectedRole = demoUsers[email]!.role;
+      if (res == null || res['role'] != expectedRole) {
+        await client.from('profiles').upsert({
+          'id': user.id,
+          'name': demoUsers[email]!.name,
+          'role': expectedRole,
+        });
+
+        if (expectedRole == 'vendor') {
+          await client.from('vendors').upsert({
+            'user_id': user.id,
+            'name': demoUsers[email]!.name,
+            'shopName': "Default Shop",
+            'phone': '',
+            'address': '',
+          });
+        } else if (expectedRole == 'driver') {
+          await client.from('drivers').upsert({
+            'user_id': user.id,
+            'name': demoUsers[email]!.name,
+            'phone': '',
+          });
+        }
+        return expectedRole;
+      }
+    }
+
+    if (res == null) {
+      // Profile missing for a non-demo user -> determine actual role if possible
+      String roleToCreate = user.userMetadata?['role'] ?? 'vendor';
+
+      // Create it automatically
+      await client.from('profiles').upsert({
+        'id': user.id,
+        'name': user.email?.split('@')[0] ?? 'Unknown',
+        'role': roleToCreate,
+      });
+
+      // Ensure specific row exists for the determined role
+      if (roleToCreate == 'vendor') {
+        await client.from('vendors').upsert({
+          'user_id': user.id,
+          'name': user.email?.split('@')[0] ?? 'Unknown',
+          'shopName': "Default Shop",
+          'phone': '',
+          'address': '',
+        });
+      } else if (roleToCreate == 'driver') {
+        await client.from('drivers').upsert({
+          'user_id': user.id,
+          'name': user.email?.split('@')[0] ?? 'Unknown',
+          'phone': '',
+        });
+      }
+      return roleToCreate;
+    }
+
+    return res['role'] as String?;
   }
 
   static Future<Map<String, dynamic>?> getCurrentVendorProfile() async {
-    final userId = currentUser?.id;
-    if (userId == null) return null;
-    return client.from('vendors').select().eq('user_id', userId).maybeSingle();
+    final user = currentUser;
+    if (user == null) return null;
+    return client.from('vendors').select().eq('user_id', user.id).maybeSingle();
   }
 
   static Future<Map<String, dynamic>?> getCurrentDriverProfile() async {
-    final userId = currentUser?.id;
-    if (userId == null) return null;
-    return client.from('drivers').select().eq('user_id', userId).maybeSingle();
+    final user = currentUser;
+    if (user == null) return null;
+    return client.from('drivers').select().eq('user_id', user.id).maybeSingle();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

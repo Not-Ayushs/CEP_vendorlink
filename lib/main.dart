@@ -87,6 +87,13 @@ class _RoleRouterState extends State<RoleRouter> {
     try {
       final role = await SupabaseService.getCurrentUserRole();
       if (!mounted) return;
+
+      if (role == null || role.trim().isEmpty) {
+        setState(() => _error =
+            'No role found for this account.\nContact your admin or register a new account.');
+        return;
+      }
+
       Widget dest;
       switch (role) {
         case 'vendor':
@@ -100,12 +107,14 @@ class _RoleRouterState extends State<RoleRouter> {
           break;
         default:
           setState(() => _error =
-              'No role found for this account.\nContact your admin or register a new account.');
+              'Invalid role found for this account.\nContact your admin or register a new account.');
           return;
       }
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => dest));
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) {
+        setState(() => _error = e.toString());
+      }
     }
   }
 

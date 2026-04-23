@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:swm_vendor/services/supabase_service.dart';
 import 'package:swm_vendor/theme/app_theme.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class DriverRouteTab extends StatefulWidget {
   const DriverRouteTab({super.key});
@@ -50,25 +52,59 @@ class _DriverRouteTabState extends State<DriverRouteTab> {
             ),
           ),
 
-          // ── Map placeholder ──────────────────────────────────────────────
+          // ── Map view ───────────────────────────────────────────────────
           Container(
-            height: 160,
+            height: 200,
             margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             decoration: BoxDecoration(
               color: Colors.grey[100],
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey[200]!),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                )
+              ]
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.map_outlined, size: 40, color: Colors.grey[400]),
-                const SizedBox(height: 8),
-                Text('Map Placeholder',
-                    style: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w500)),
-                Text('${_pending.length} stop${_pending.length == 1 ? '' : 's'} remaining',
-                    style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-              ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: FlutterMap(
+                options: const MapOptions(
+                  initialCenter: LatLng(19.0760, 72.8777),
+                  initialZoom: 11.0,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.swmvendor.app',
+                  ),
+                  MarkerLayer(
+                    markers: _pending.map((r) {
+                      final vendorId = r['vendorId'];
+                      final vId = int.tryParse(vendorId.toString()) ?? 1;
+                      final offsetLat = (vId % 15) * 0.008 * (vId % 2 == 0 ? 1 : -1);
+                      final offsetLng = (vId % 10) * 0.008 * (vId % 3 == 0 ? 1 : -1);
+                      final loc = LatLng(19.0760 + offsetLat, 72.8777 + offsetLng);
+                      return Marker(
+                        point: loc,
+                        width: 40,
+                        height: 40,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.orange,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                          ),
+                          child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 20),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
             ),
           ),
 
