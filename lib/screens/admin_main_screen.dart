@@ -20,11 +20,11 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   bool _loading = true;
 
   static const _navItems = [
-    (icon: Icons.dashboard,           label: 'Dashboard',          isLogout: false),
-    (icon: Icons.table_chart,         label: 'Records',            isLogout: false),
-    (icon: Icons.warning_amber_rounded, label: 'Suspicious',        isLogout: false),
-    (icon: Icons.download,            label: 'Export',             isLogout: false),
-    (icon: Icons.logout,              label: 'Logout',             isLogout: true),
+    (icon: Icons.dashboard, label: 'Dashboard', isLogout: false),
+    (icon: Icons.table_chart, label: 'Records', isLogout: false),
+    (icon: Icons.warning_amber_rounded, label: 'Suspicious', isLogout: false),
+    (icon: Icons.download, label: 'Export', isLogout: false),
+    (icon: Icons.logout, label: 'Logout', isLogout: true),
   ];
 
   @override
@@ -48,6 +48,11 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     if ((decl - verif).abs() > 2) return true;
     if (r['photoAdded'] == false) return true;
     if (r['qrScanned'] == false) return true;
+    if (r['qr_verified'] != true) return true;
+    if ((r['invalid_scan_count'] as num?)?.toInt() != null &&
+        (r['invalid_scan_count'] as num).toInt() > 0) {
+      return true;
+    }
     return false;
   }
 
@@ -58,6 +63,14 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     if ((decl - verif).abs() > 2) reasons.add('Weight mismatch');
     if (r['photoAdded'] == false) reasons.add('Missing photo');
     if (r['qrScanned'] == false) reasons.add('QR not scanned');
+    if (r['qr_verified'] != true) reasons.add('QR not server verified');
+    final invalidScans = (r['invalid_scan_count'] as num?)?.toInt() ?? 0;
+    if (invalidScans > 0) {
+      reasons.add('$invalidScans invalid scan${invalidScans == 1 ? '' : 's'}');
+    }
+    if ((r['last_qr_error'] ?? '').toString().isNotEmpty) {
+      reasons.add(r['last_qr_error'].toString());
+    }
     return reasons;
   }
 
@@ -72,13 +85,17 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   }
 
   // ── Computed values ─────────────────────────────────────────────────────
-  List<Map<String, dynamic>> get _flagged => _allRecords.where(_isFlagged).toList();
-  List<Map<String, dynamic>> get _flaggedWithReasons =>
-      _flagged.map((r) => {...r, '_reasons': _flagReasons(r).join(', ')}).toList();
-  int get _completed => _allRecords.where((r) => r['status'] == 'Collected').length;
+  List<Map<String, dynamic>> get _flagged =>
+      _allRecords.where(_isFlagged).toList();
+  List<Map<String, dynamic>> get _flaggedWithReasons => _flagged
+      .map((r) => {...r, '_reasons': _flagReasons(r).join(', ')})
+      .toList();
+  int get _completed =>
+      _allRecords.where((r) => r['status'] == 'Collected').length;
   int get _pending => _allRecords.where((r) => r['status'] == 'Pending').length;
 
-  String get _currentTitle => _navItems[_selectedIndex < 4 ? _selectedIndex : 3].label;
+  String get _currentTitle =>
+      _navItems[_selectedIndex < 4 ? _selectedIndex : 3].label;
 
   Widget get _currentBody {
     switch (_selectedIndex) {
@@ -110,17 +127,28 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           children: [
             if (inDrawer) ...[
               const SizedBox(height: 16),
-              Row(children: [
-                const SizedBox(width: 16),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary, borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 20)),
-                const SizedBox(width: 10),
-                const Text('Admin Panel',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ]),
+              Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.admin_panel_settings,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Admin Panel',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               const Divider(),
             ] else
@@ -153,14 +181,27 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       if (!isMobile)
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            CircleAvatar(
-              backgroundColor: AppTheme.primary,
-              radius: 15,
-              child: Icon(Icons.admin_panel_settings, size: 16, color: Colors.white)),
-            SizedBox(width: 8),
-            Text('Admin', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-          ]),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: AppTheme.primary,
+                radius: 15,
+                child: Icon(
+                  Icons.admin_panel_settings,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Admin',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
         ),
     ];
   }
@@ -176,12 +217,15 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       // ── Mobile drawer ───────────────────────────────────────────────────
-      drawer: isMobile
-          ? Drawer(child: _buildSidebar(inDrawer: true))
-          : null,
+      drawer: isMobile ? Drawer(child: _buildSidebar(inDrawer: true)) : null,
       appBar: AppBar(
-        title: Text(_currentTitle,
-            style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: Text(
+          _currentTitle,
+          style: const TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
@@ -221,14 +265,21 @@ class _NavTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isLogout ? Colors.red : (isSelected ? AppTheme.primary : Colors.black87);
+    final color = isLogout
+        ? Colors.red
+        : (isSelected ? AppTheme.primary : Colors.black87);
     return ListTile(
       leading: Icon(icon, color: color, size: 22),
-      title: Text(label,
-          style: TextStyle(
-              color: color,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500)),
-      tileColor: isSelected ? AppTheme.primary.withValues(alpha: 0.1) : Colors.transparent,
+      title: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+        ),
+      ),
+      tileColor: isSelected
+          ? AppTheme.primary.withValues(alpha: 0.1)
+          : Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       onTap: onTap,

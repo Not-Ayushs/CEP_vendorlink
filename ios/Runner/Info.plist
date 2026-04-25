@@ -6,6 +6,8 @@
 	<string>Required to show your location on the route map and plot nearby vendors.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Required to show your location on the route map and plot nearby vendors.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Required for drivers to scan vendor pickup QR codes.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Central Supabase service — single source of truth for all DB and Auth ops.
@@ -32,7 +34,8 @@ class SupabaseService {
     ),
   };
 
-  static bool isDemoUser(String email) => demoUsers.containsKey(email.toLowerCase().trim());
+  static bool isDemoUser(String email) =>
+      demoUsers.containsKey(email.toLowerCase().trim());
   // ─────────────────────────────────────────────────────────────────────────
 
   static SupabaseClient get client => Supabase.instance.client;
@@ -90,7 +93,8 @@ class SupabaseService {
         user.identities != null && user.identities!.isEmpty;
     if (isAlreadyRegistered) {
       throw Exception(
-          'This email is already registered. Please sign in instead.');
+        'This email is already registered. Please sign in instead.',
+      );
     }
 
     final userId = user.id;
@@ -121,10 +125,11 @@ class SupabaseService {
           ignoreDuplicates: true, // skip if already exists (no overwrite)
         );
       } else if (role == 'driver') {
-        await client.from('drivers').upsert(
-          {'user_id': userId, 'name': name, 'phone': ''},
-          ignoreDuplicates: true,
-        );
+        await client.from('drivers').upsert({
+          'user_id': userId,
+          'name': name,
+          'phone': '',
+        }, ignoreDuplicates: true);
       }
       // admin: only profiles row needed
     } catch (e) {
@@ -227,6 +232,86 @@ class SupabaseService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // QR VERIFICATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static Map<String, dynamic> _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    if (value is String) return Map<String, dynamic>.from(jsonDecode(value));
+    throw Exception('Unexpected server response.');
+  }
+
+  static Future<Map<String, dynamic>> createQrPayload({
+    required int vendorId,
+    required int recordId,
+  }) async {
+    final res = await client.rpc(
+      'create_qr_token',
+      params: {'p_vendor_id': vendorId, 'p_record_id': recordId},
+    );
+    return _asMap(res);
+  }
+
+  static Future<Map<String, dynamic>?> getLatestQrPayloadForRecord({
+    required int vendorId,
+    required int recordId,
+  }) async {
+    final res = await client
+        .from('qr_tokens')
+        .select('token, vendor_id, record_id, created_at')
+        .eq('vendor_id', vendorId)
+        .eq('record_id', recordId)
+        .eq('is_used', false)
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+
+    if (res == null) return null;
+    return {
+      'vendor_id': res['vendor_id'],
+      'record_id': res['record_id'],
+      'timestamp': res['created_at'],
+      'token': res['token'],
+    };
+  }
+
+  static Future<Map<String, dynamic>> getOrCreateQrPayload({
+    required int vendorId,
+    required int recordId,
+  }) async {
+    final existing = await getLatestQrPayloadForRecord(
+      vendorId: vendorId,
+      recordId: recordId,
+    );
+    if (existing != null) return existing;
+    return createQrPayload(vendorId: vendorId, recordId: recordId);
+  }
+
+  static Future<Map<String, dynamic>> verifyQrPickup({
+    required String token,
+    required int vendorId,
+    required int recordId,
+    required int driverId,
+    required double driverLat,
+    required double driverLng,
+  }) async {
+    final res = await client.rpc(
+      'verify_qr_pickup',
+      params: {
+        'p_token': token,
+        'p_vendor_id': vendorId,
+        'p_record_id': recordId,
+        'p_driver_id': driverId,
+        'p_driver_lat': driverLat,
+        'p_driver_lng': driverLng,
+        'p_scanned_at': DateTime.now().toUtc().toIso8601String(),
+      },
+    );
+    return _asMap(res);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // WASTE RECORDS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -241,13 +326,15 @@ class SupabaseService {
   static Future<List<Map<String, dynamic>>> getPendingRecords() async {
     final res = await client
         .from('waste_records')
-        .select('*, vendors(name, shopName)')
+        .select('*, vendors(name, shopName, address)')
         .eq('status', 'Pending')
         .order('id', ascending: true);
     return List<Map<String, dynamic>>.from(res);
   }
 
-  static Future<List<Map<String, dynamic>>> getVendorRecords(int vendorId) async {
+  static Future<List<Map<String, dynamic>>> getVendorRecords(
+    int vendorId,
+  ) async {
     final res = await client
         .from('waste_records')
         .select('*, drivers(name)')
@@ -260,7 +347,7 @@ class SupabaseService {
   static Future<List<Map<String, dynamic>>> getCollectedRecords() async {
     final res = await client
         .from('waste_records')
-        .select('*, vendors(name, shopName), drivers(name)')
+        .select('*, vendors(name, shopName, address), drivers(name)')
         .eq('status', 'Collected')
         .order('id', ascending: false);
     return List<Map<String, dynamic>>.from(res);
@@ -270,12 +357,12 @@ class SupabaseService {
   static Future<List<Map<String, dynamic>>> getAllRecordsForDriver() async {
     final res = await client
         .from('waste_records')
-        .select('*, vendors(name, shopName), drivers(name)')
+        .select('*, vendors(name, shopName, address), drivers(name)')
         .order('id', ascending: false);
     return List<Map<String, dynamic>>.from(res);
   }
 
-  static Future<void> declareWaste({
+  static Future<Map<String, dynamic>> declareWaste({
     required int vendorId,
     required double declaredWaste,
     required String wasteType,
@@ -301,7 +388,13 @@ class SupabaseService {
       record['lat'] = lat;
       record['lng'] = lng;
     }
-    await client.from('waste_records').insert(record);
+    final inserted = await client
+        .from('waste_records')
+        .insert(record)
+        .select()
+        .single();
+    await createQrPayload(vendorId: vendorId, recordId: inserted['id']);
+    return Map<String, dynamic>.from(inserted);
   }
 
   static Future<void> collectRecord({
@@ -312,14 +405,17 @@ class SupabaseService {
     required bool photoAdded,
     required String timestamp,
   }) async {
-    await client.from('waste_records').update({
-      'driverId': driverId,
-      'verifiedWaste': verifiedWaste,
-      'status': 'Collected',
-      'timestamp': timestamp,
-      'qrScanned': qrScanned,
-      'photoAdded': photoAdded,
-    }).eq('id', recordId);
+    await client
+        .from('waste_records')
+        .update({
+          'driverId': driverId,
+          'verifiedWaste': verifiedWaste,
+          'status': 'Collected',
+          'timestamp': timestamp,
+          'qrScanned': qrScanned,
+          'photoAdded': photoAdded,
+        })
+        .eq('id', recordId);
   }
 }
 

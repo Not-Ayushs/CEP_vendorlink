@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:swm_vendor/services/supabase_service.dart';
 import 'package:swm_vendor/services/location_service.dart';
 import 'package:swm_vendor/theme/app_theme.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'driver_vendor_detail_screen.dart';
@@ -16,8 +19,6 @@ class DriverDashboardTab extends StatefulWidget {
 }
 
 class _DriverDashboardTabState extends State<DriverDashboardTab> {
-  List<Map<String, dynamic>> _pending = [];
-  List<Map<String, dynamic>> _collected = [];
   List<Map<String, dynamic>> _all = [];
   Map<String, dynamic>? _driverProfile;
 
@@ -30,10 +31,15 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
   int? _expandedId;
   String _filter = 'Pending'; // Pending | Collected
   String _searchQuery = '';
+  bool _routeLoading = false;
+  String? _routeError;
+  List<LatLng> _routePoints = [];
   final _searchCtrl = TextEditingController();
   final MapController _mapController = MapController();
 
   static const LatLng _mumbaiCenter = LatLng(19.0760, 72.8777);
+  static const double _nearbyRadiusKm = 10;
+  final Distance _distance = const Distance();
 
   @override
   void initState() {
@@ -52,8 +58,6 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
     try {
       _driverProfile = await SupabaseService.getCurrentDriverProfile();
       _all = await SupabaseService.getAllRecordsForDriver();
-      _pending = _all.where((r) => r['status'] == 'Pending').toList();
-      _collected = _all.where((r) => r['status'] == 'Collected').toList();
     } catch (_) {}
 
     // Fetch real GPS location on every load
@@ -72,7 +76,9 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
       if (_locationDenied) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(LocationService.permissionMessage(_locationPermission)),
+            content: Text(
+              LocationService.permissionMessage(_locationPermission),
+            ),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 4),
           ),
@@ -82,7 +88,23 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
   }
 
   List<Map<String, dynamic>> get _filteredByStatus =>
-      _filter == 'Pending' ? _pending : _collected;
+      _nearbyRecords.where((r) => r['status'] == _filter).toList();
+
+  List<Map<String, dynamic>> get _nearbyRecords {
+    if (_userLocation == null) return [];
+    return _all.where((r) {
+      final loc = _recordLocation(r);
+      if (loc == null) return false;
+      return _distance.as(LengthUnit.Kilometer, _userLocation!, loc) <=
+          _nearbyRadiusKm;
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> get _nearbyPending =>
+      _nearbyRecords.where((r) => r['status'] == 'Pending').toList();
+
+  List<Map<String, dynamic>> get _nearbyCollected =>
+      _nearbyRecords.where((r) => r['status'] == 'Collected').toList();
 
   List<Map<String, dynamic>> get _filteredAndSearched {
     if (_searchQuery.isEmpty) return _filteredByStatus;
@@ -95,14 +117,91 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
     }).toList();
   }
 
-  // Generate deterministic coordinates anchored to the REAL user location.
-  // Falls back to Mumbai center if location is unavailable.
-  LatLng _getMockLocation(dynamic vendorIdRaw) {
-    final center = _userLocation ?? _mumbaiCenter;
-    final vId = int.tryParse(vendorIdRaw.toString()) ?? 1;
-    final offsetLat = (vId % 15) * 0.006 * (vId % 2 == 0 ? 1 : -1);
-    final offsetLng = (vId % 10) * 0.006 * (vId % 3 == 0 ? 1 : -1);
-    return LatLng(center.latitude + offsetLat, center.longitude + offsetLng);
+  LatLng? _recordLocation(Map<String, dynamic> record) {
+    final lat = (record['lat'] as num?)?.toDouble();
+    final lng = (record['lng'] as num?)?.toDouble();
+    if (lat == null || lng == null) return null;
+    return LatLng(lat, lng);
+  }
+
+  String _distanceLabel(Map<String, dynamic> record) {
+    final loc = _recordLocation(record);
+    if (_userLocation == null || loc == null) return 'Location unavailable';
+    final km = _distance.as(LengthUnit.Kilometer, _userLocation!, loc);
+    if (km < 1) return '${(km * 1000).round()} m away';
+    return '${km.toStringAsFixed(1)} km away';
+  }
+
+  Future<void> _selectRecord(
+    Map<String, dynamic> record, {
+    bool showMap = false,
+  }) async {
+    final loc = _recordLocation(record);
+    if (loc == null) return;
+
+    setState(() {
+      _expandedId = record['id'];
+      if (showMap) _isMapView = true;
+      _routeLoading = true;
+      _routeError = null;
+      _routePoints = [];
+    });
+
+    Future.delayed(const Duration(milliseconds: 250), () {
+      _mapController.move(loc, 14.5);
+    });
+
+    await _loadRouteTo(loc);
+  }
+
+  Future<void> _loadRouteTo(LatLng destination) async {
+    final origin = _userLocation;
+    if (origin == null) {
+      setState(() {
+        _routeLoading = false;
+        _routeError = 'Driver location unavailable';
+      });
+      return;
+    }
+
+    try {
+      final url = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/'
+        '${origin.longitude},${origin.latitude};'
+        '${destination.longitude},${destination.latitude}'
+        '?overview=full&geometries=geojson',
+      );
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) {
+        throw Exception('Route service unavailable');
+      }
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final routes = body['routes'] as List?;
+      if (routes == null || routes.isEmpty) {
+        throw Exception('No route found');
+      }
+
+      final coordinates =
+          routes.first['geometry']['coordinates'] as List<dynamic>;
+      final points = coordinates.map((c) {
+        final pair = c as List<dynamic>;
+        return LatLng((pair[1] as num).toDouble(), (pair[0] as num).toDouble());
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _routePoints = points;
+        _routeLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _routePoints = [origin, destination];
+        _routeLoading = false;
+        _routeError = 'Showing direct path. Route service did not respond.';
+      });
+    }
   }
 
   Future<void> _launchNavigation(LatLng loc) async {
@@ -112,13 +211,19 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
 
     // Primary: Google Maps navigation URL (works on iOS + Android via browser/app)
     final mapsUrl = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}');
+      'https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}',
+    );
 
     // Fallback: geo: URI — natively opens the Maps app on Android
-    final geoUrl = Uri.parse('geo:${loc.latitude},${loc.longitude}?q=${loc.latitude},${loc.longitude}');
+    final geoUrl = Uri.parse(
+      'geo:${loc.latitude},${loc.longitude}?q=${loc.latitude},${loc.longitude}',
+    );
 
     try {
-      final launched = await launchUrl(mapsUrl, mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(
+        mapsUrl,
+        mode: LaunchMode.externalApplication,
+      );
       if (!launched) {
         // Try geo: URI as fallback (Android-native)
         await launchUrl(geoUrl, mode: LaunchMode.externalApplication);
@@ -131,7 +236,9 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Could not open maps. Install Google Maps and try again.'),
+              content: Text(
+                'Could not open maps. Install Google Maps and try again.',
+              ),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -152,24 +259,43 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Dashboard',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  if (_driverProfile != null)
-                    Text('Hi, ${_driverProfile!['name']}',
-                        style: const TextStyle(color: Colors.black54)),
-                ]),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Dashboard',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (_driverProfile != null)
+                      Text(
+                        'Hi, ${_driverProfile!['name']}',
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                  ],
+                ),
                 Row(
                   children: [
                     IconButton(
-                        icon: Icon(_isMapView ? Icons.list_alt_rounded : Icons.map_outlined),
-                        color: _isMapView ? AppTheme.primary : Colors.grey[700],
-                        tooltip: _isMapView ? 'Switch to List View' : 'Switch to Map View',
-                        onPressed: () {
-                          setState(() => _isMapView = !_isMapView);
-                        }),
+                      icon: Icon(
+                        _isMapView
+                            ? Icons.list_alt_rounded
+                            : Icons.map_outlined,
+                      ),
+                      color: _isMapView ? AppTheme.primary : Colors.grey[700],
+                      tooltip: _isMapView
+                          ? 'Switch to List View'
+                          : 'Switch to Map View',
+                      onPressed: () {
+                        setState(() => _isMapView = !_isMapView);
+                      },
+                    ),
                     IconButton(
-                        icon: const Icon(Icons.refresh_rounded), onPressed: _load),
+                      icon: const Icon(Icons.refresh_rounded),
+                      onPressed: _load,
+                    ),
                   ],
                 ),
               ],
@@ -180,43 +306,45 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
           if (!_isMapView)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(children: [
-                Expanded(
-                  child: _StatCard(
-                    label: 'Total',
-                    value: '${_all.length}',
-                    bgColor: Colors.blue[50]!,
-                    borderColor: Colors.blue[100]!,
-                    iconColor: Colors.blue[600]!,
-                    valueColor: Colors.blue[700]!,
-                    icon: Icons.assignment_rounded,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      label: 'Total',
+                      value: '${_nearbyRecords.length}',
+                      bgColor: Colors.blue[50]!,
+                      borderColor: Colors.blue[100]!,
+                      iconColor: Colors.blue[600]!,
+                      valueColor: Colors.blue[700]!,
+                      icon: Icons.assignment_rounded,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _StatCard(
-                    label: 'Done',
-                    value: '${_collected.length}',
-                    bgColor: Colors.green[50]!,
-                    borderColor: Colors.green[100]!,
-                    iconColor: Colors.green[600]!,
-                    valueColor: Colors.green[700]!,
-                    icon: Icons.check_circle_rounded,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _StatCard(
+                      label: 'Done',
+                      value: '${_nearbyCollected.length}',
+                      bgColor: Colors.green[50]!,
+                      borderColor: Colors.green[100]!,
+                      iconColor: Colors.green[600]!,
+                      valueColor: Colors.green[700]!,
+                      icon: Icons.check_circle_rounded,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _StatCard(
-                    label: 'Left',
-                    value: '${_pending.length}',
-                    bgColor: Colors.orange[50]!,
-                    borderColor: Colors.orange[100]!,
-                    iconColor: Colors.orange[600]!,
-                    valueColor: Colors.orange[700]!,
-                    icon: Icons.pending_actions_rounded,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _StatCard(
+                      label: 'Left',
+                      value: '${_nearbyPending.length}',
+                      bgColor: Colors.orange[50]!,
+                      borderColor: Colors.orange[100]!,
+                      iconColor: Colors.orange[600]!,
+                      valueColor: Colors.orange[700]!,
+                      icon: Icons.pending_actions_rounded,
+                    ),
                   ),
-                ),
-              ]),
+                ],
+              ),
             ),
 
           // ── Search & Filters ──────────────────────────────────────────────
@@ -224,23 +352,42 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: TextField(
               controller: _searchCtrl,
-              onChanged: (v) => setState(() => _searchQuery = v),
+              onChanged: (v) => setState(() {
+                _searchQuery = v;
+                _expandedId = null;
+                _routePoints = [];
+              }),
               decoration: InputDecoration(
                 hintText: 'Search vendor by name…',
                 hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[500], size: 22),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: Colors.grey[500],
+                  size: 22,
+                ),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.clear_rounded, color: Colors.grey[400], size: 20),
+                        icon: Icon(
+                          Icons.clear_rounded,
+                          color: Colors.grey[400],
+                          size: 20,
+                        ),
                         onPressed: () {
                           _searchCtrl.clear();
-                          setState(() => _searchQuery = '');
+                          setState(() {
+                            _searchQuery = '';
+                            _expandedId = null;
+                            _routePoints = [];
+                          });
                         },
                       )
                     : null,
                 filled: true,
                 fillColor: Colors.grey[100],
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -257,15 +404,23 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               children: [
                 _FilterChip(
-                  label: 'Pending (${_pending.length})',
+                  label: 'Pending (${_nearbyPending.length})',
                   selected: _filter == 'Pending',
-                  onTap: () => setState(() => _filter = 'Pending'),
+                  onTap: () => setState(() {
+                    _filter = 'Pending';
+                    _expandedId = null;
+                    _routePoints = [];
+                  }),
                 ),
                 const SizedBox(width: 10),
                 _FilterChip(
-                  label: 'Collected (${_collected.length})',
+                  label: 'Collected (${_nearbyCollected.length})',
                   selected: _filter == 'Collected',
-                  onTap: () => setState(() => _filter = 'Collected'),
+                  onTap: () => setState(() {
+                    _filter = 'Collected';
+                    _expandedId = null;
+                    _routePoints = [];
+                  }),
                 ),
               ],
             ),
@@ -277,8 +432,8 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _isMapView
-                    ? _buildMobileFriendlyMap()
-                    : _buildList(),
+                ? _buildMobileFriendlyMap()
+                : _buildList(),
           ),
         ],
       ),
@@ -290,7 +445,7 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
 
     // Build vendor markers
     final vendorMarkers = _filteredAndSearched.map((r) {
-      final loc = _getMockLocation(r['vendorId']);
+      final loc = _recordLocation(r)!;
       final isCollected = r['status'] == 'Collected';
       final isSelected = _expandedId == r['id'];
       return Marker(
@@ -299,14 +454,15 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
         height: isSelected ? 50 : 40,
         child: GestureDetector(
           onTap: () {
-            setState(() {
-              if (_expandedId == r['id']) {
+            if (_expandedId == r['id']) {
+              setState(() {
                 _expandedId = null;
-              } else {
-                _expandedId = r['id'];
-                _mapController.move(loc, 14.0);
-              }
-            });
+                _routePoints = [];
+                _routeError = null;
+              });
+            } else {
+              _selectRecord(r);
+            }
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -318,7 +474,11 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
                 width: isSelected ? 3 : 2,
               ),
               boxShadow: const [
-                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
               ],
             ),
             child: Icon(
@@ -344,10 +504,18 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
               color: Colors.blue[600],
               border: Border.all(color: Colors.white, width: 3),
               boxShadow: const [
-                BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 3))
+                BoxShadow(
+                  color: Colors.black38,
+                  blurRadius: 6,
+                  offset: Offset(0, 3),
+                ),
               ],
             ),
-            child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 22),
+            child: const Icon(
+              Icons.my_location_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
           ),
         ),
       );
@@ -362,15 +530,22 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
         children: [
           FlutterMap(
             mapController: _mapController,
-            options: MapOptions(
-              initialCenter: mapCenter,
-              initialZoom: 13.0,
-            ),
+            options: MapOptions(initialCenter: mapCenter, initialZoom: 13.0),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.swmvendor.app',
               ),
+              if (_routePoints.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _routePoints,
+                      color: AppTheme.primary,
+                      strokeWidth: 5,
+                    ),
+                  ],
+                ),
               MarkerLayer(markers: vendorMarkers),
             ],
           ),
@@ -389,8 +564,12 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
                 child: Padding(
                   padding: const EdgeInsets.all(8),
                   child: Icon(
-                    _userLocation != null ? Icons.my_location_rounded : Icons.location_searching_rounded,
-                    color: _userLocation != null ? Colors.blue[700] : Colors.grey[600],
+                    _userLocation != null
+                        ? Icons.my_location_rounded
+                        : Icons.location_searching_rounded,
+                    color: _userLocation != null
+                        ? Colors.blue[700]
+                        : Colors.grey[600],
                     size: 22,
                   ),
                 ),
@@ -409,6 +588,48 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
                 forceExpand: true,
               ),
             ),
+          if (_routeLoading || _routeError != null)
+            Positioned(
+              left: 20,
+              right: 20,
+              top: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 8),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    if (_routeLoading)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      Icon(
+                        Icons.route_outlined,
+                        size: 18,
+                        color: Colors.orange[700],
+                      ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _routeLoading ? 'Finding route...' : _routeError!,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -416,22 +637,38 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
 
   Widget _buildList() {
     if (_filteredAndSearched.isEmpty) {
+      final message = _userLocation == null
+          ? 'Enable location to see nearby vendors'
+          : _searchQuery.isNotEmpty
+          ? 'No matching nearby vendors'
+          : _filter == 'Pending'
+          ? 'No nearby pending pickups'
+          : 'No nearby collected pickups';
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-                _filter == 'Pending' ? Icons.check_circle_outline : Icons.inbox_outlined,
-                size: 64,
-                color: _filter == 'Pending' ? Colors.green[400] : Colors.grey[400]),
+              _filter == 'Pending'
+                  ? Icons.check_circle_outline
+                  : Icons.inbox_outlined,
+              size: 64,
+              color: _filter == 'Pending'
+                  ? Colors.green[400]
+                  : Colors.grey[400],
+            ),
             const SizedBox(height: 16),
             Text(
-                _searchQuery.isNotEmpty
-                    ? 'No matching vendors'
-                    : _filter == 'Pending'
-                        ? 'All caught up!'
-                        : 'No collected pickups',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              message,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Showing vendors within ${_nearbyRadiusKm.toStringAsFixed(0)} km of the driver.',
+              style: const TextStyle(color: Colors.black45, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       );
@@ -451,29 +688,34 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
     );
   }
 
-  Widget _buildVendorExpandableTile(Map<String, dynamic> r, {bool forceExpand = false}) {
+  Widget _buildVendorExpandableTile(
+    Map<String, dynamic> r, {
+    bool forceExpand = false,
+  }) {
     final vendor = r['vendors'];
     final isCollected = r['status'] == 'Collected';
     final isExpanded = forceExpand || _expandedId == r['id'];
-    final loc = _getMockLocation(r['vendorId']);
-    
-    // Mock details
-    final mockAddress = 'Sector ${(r['vendorId'] as int?) is int ? (r['vendorId'] as int) % 15 + 1 : 1}, Andheri West, Mumbai';
-    final distMock = ((r['vendorId'] as int?) is int ? (r['vendorId'] as int) % 5 + 1.5 : 2.0).toStringAsFixed(1);
+    final loc = _recordLocation(r)!;
+    final address = (vendor?['address'] ?? '').toString().trim().isNotEmpty
+        ? vendor!['address'].toString()
+        : '${loc.latitude.toStringAsFixed(5)}, ${loc.longitude.toStringAsFixed(5)}';
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: isExpanded ? AppTheme.primary.withValues(alpha: 0.3) : Colors.grey[200]!,
-            width: isExpanded ? 1.5 : 1.0,
+          color: isExpanded
+              ? AppTheme.primary.withValues(alpha: 0.3)
+              : Colors.grey[200]!,
+          width: isExpanded ? 1.5 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 3)),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
       child: AnimatedSize(
@@ -496,58 +738,84 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.all(14),
-                child: Row(children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                        color: isCollected ? Colors.green[50] : Colors.orange[50],
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Icon(
-                        isCollected ? Icons.check_circle_rounded : Icons.pending_actions,
-                        color: isCollected ? Colors.green[600] : Colors.orange[600],
-                        size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isCollected
+                            ? Colors.green[50]
+                            : Colors.orange[50],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isCollected
+                            ? Icons.check_circle_rounded
+                            : Icons.pending_actions,
+                        color: isCollected
+                            ? Colors.green[600]
+                            : Colors.orange[600],
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             vendor?['name'] ?? 'Vendor #${r['vendorId']}',
                             style: TextStyle(
-                                fontWeight: isExpanded ? FontWeight.w800 : FontWeight.bold, 
-                                fontSize: 16),
+                              fontWeight: isExpanded
+                                  ? FontWeight.w800
+                                  : FontWeight.bold,
+                              fontSize: 16,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '${r['declaredWaste']} kg  •  ${r['wasteType'] ?? '—'}',
-                            style: const TextStyle(color: Colors.grey, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
                           ),
-                        ]),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isCollected ? Colors.green[50] : Colors.orange[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      r['status'] ?? '',
-                      style: TextStyle(
-                        color: isCollected ? Colors.green[700] : Colors.orange[700],
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, 
-                    color: Colors.grey[400]
-                  ),
-                ]),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isCollected
+                            ? Colors.green[50]
+                            : Colors.orange[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        r['status'] ?? '',
+                        style: TextStyle(
+                          color: isCollected
+                              ? Colors.green[700]
+                              : Colors.orange[700],
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      isExpanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: Colors.grey[400],
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -560,33 +828,43 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
                   children: [
                     const Divider(height: 16),
                     const SizedBox(height: 8),
-                    
+
                     // Info rows
-                    _InfoRow(icon: Icons.location_on_outlined, text: mockAddress),
-                    const SizedBox(height: 6),
-                    _InfoRow(icon: Icons.directions_car_outlined, text: '$distMock km away'),
+                    _InfoRow(icon: Icons.location_on_outlined, text: address),
                     const SizedBox(height: 6),
                     _InfoRow(
-                      icon: Icons.notes_outlined, 
-                      text: (r['notes'] != null && r['notes'].toString().isNotEmpty) 
-                          ? r['notes'] 
-                          : 'No special instructions given.'
+                      icon: Icons.directions_car_outlined,
+                      text: _distanceLabel(r),
                     ),
-                    
+                    const SizedBox(height: 6),
+                    _InfoRow(
+                      icon: Icons.notes_outlined,
+                      text:
+                          (r['notes'] != null &&
+                              r['notes'].toString().isNotEmpty)
+                          ? r['notes']
+                          : 'No special instructions given.',
+                    ),
+
                     const SizedBox(height: 16),
-                    
+
                     // Action Buttons
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () => _launchNavigation(loc),
-                            icon: const Icon(Icons.navigation_outlined, size: 18),
-                            label: const Text('Navigate'),
+                            icon: const Icon(
+                              Icons.navigation_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('Open Maps'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.blue[700],
                               side: BorderSide(color: Colors.blue[200]!),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
                           ),
@@ -596,29 +874,30 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () {
-                                setState(() {
-                                  _expandedId = r['id'];
-                                  _isMapView = true;
-                                });
-                                // Small delay to allow view switch then center map
-                                Future.delayed(const Duration(milliseconds: 300), () {
-                                  _mapController.move(loc, 14.0);
-                                });
+                                _selectRecord(r, showMap: true);
                               },
                               icon: const Icon(Icons.map_outlined, size: 18),
-                              label: const Text('View on Map'),
+                              label: const Text('Show Route'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppTheme.primary,
-                                side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.3)),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                side: BorderSide(
+                                  color: AppTheme.primary.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
                             ),
                           ),
                         ],
                       ],
                     ),
-                    
+
                     if (!isCollected) ...[
                       const SizedBox(height: 10),
                       ElevatedButton.icon(
@@ -634,13 +913,19 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
                           );
                           _load();
                         },
-                        icon: const Icon(Icons.qr_code_scanner, size: 18, color: Colors.white),
+                        icon: const Icon(
+                          Icons.qr_code_scanner,
+                          size: 18,
+                          color: Colors.white,
+                        ),
                         label: const Text('Complete Pickup'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primary,
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
@@ -659,7 +944,7 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String text;
   const _InfoRow({required this.icon, required this.text});
-  
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -668,7 +953,10 @@ class _InfoRow extends StatelessWidget {
         Icon(icon, size: 16, color: Colors.grey[500]),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 13, color: Colors.black87),
+          ),
         ),
       ],
     );
@@ -679,7 +967,11 @@ class _FilterChip extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -691,7 +983,9 @@ class _FilterChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? AppTheme.primary : Colors.grey[100],
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? AppTheme.primary : Colors.grey[300]!),
+          border: Border.all(
+            color: selected ? AppTheme.primary : Colors.grey[300]!,
+          ),
         ),
         child: Text(
           label,
@@ -715,8 +1009,12 @@ class _StatCard extends StatelessWidget {
   final Color valueColor;
   final IconData icon;
   const _StatCard({
-    required this.label, required this.value, required this.bgColor,
-    required this.borderColor, required this.iconColor, required this.valueColor,
+    required this.label,
+    required this.value,
+    required this.bgColor,
+    required this.borderColor,
+    required this.iconColor,
+    required this.valueColor,
     required this.icon,
   });
 
@@ -734,9 +1032,18 @@ class _StatCard extends StatelessWidget {
         children: [
           Icon(icon, color: iconColor, size: 22),
           const SizedBox(height: 6),
-          Text(value,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: valueColor)),
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.black45)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: valueColor,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Colors.black45),
+          ),
         ],
       ),
     );

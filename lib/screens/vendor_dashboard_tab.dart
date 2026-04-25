@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:swm_vendor/services/supabase_service.dart';
 import 'package:swm_vendor/theme/app_theme.dart';
 import 'vendor_declare_waste_screen.dart';
@@ -14,7 +17,9 @@ class VendorDashboardTab extends StatefulWidget {
 class _VendorDashboardTabState extends State<VendorDashboardTab> {
   List<Map<String, dynamic>> _records = [];
   Map<String, dynamic>? _vendorProfile;
+  Map<String, dynamic>? _qrPayload;
   bool _loading = true;
+  bool _qrLoading = false;
   String? _error;
 
   @override
@@ -24,11 +29,17 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       _vendorProfile = await SupabaseService.getCurrentVendorProfile();
       if (_vendorProfile != null) {
-        _records = await SupabaseService.getVendorRecords(_vendorProfile!['id']);
+        _records = await SupabaseService.getVendorRecords(
+          _vendorProfile!['id'],
+        );
+        await _loadQrForLatestPending();
       }
     } catch (e) {
       _error = e.toString();
@@ -37,9 +48,11 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
     }
   }
 
-  Map<String, dynamic>? get _latest => _records.isNotEmpty ? _records.first : null;
+  Map<String, dynamic>? get _latest =>
+      _records.isNotEmpty ? _records.first : null;
   String get _currentStatus => _latest?['status'] ?? 'Collected';
-  String get _declaredWaste => _latest != null ? '${_latest!['declaredWaste']} kg' : '0 kg';
+  String get _declaredWaste =>
+      _latest != null ? '${_latest!['declaredWaste']} kg' : '0 kg';
   String get _wasteType => _latest?['wasteType'] ?? 'N/A';
 
   // Weekly summary calculations
@@ -62,6 +75,21 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
     }
   }
 
+  Future<void> _loadQrForLatestPending() async {
+    final latest = _records.isNotEmpty ? _records.first : null;
+    if (latest == null || latest['status'] != 'Pending') {
+      _qrPayload = null;
+      return;
+    }
+
+    _qrLoading = true;
+    _qrPayload = await SupabaseService.getOrCreateQrPayload(
+      vendorId: latest['vendorId'],
+      recordId: latest['id'],
+    );
+    _qrLoading = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isPending = _currentStatus == 'Pending';
@@ -73,14 +101,15 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Loading dashboard…',
-                style: TextStyle(color: Colors.black45)),
+            Text('Loading dashboard…', style: TextStyle(color: Colors.black45)),
           ],
         ),
       );
     }
     if (_error != null) return Center(child: Text('Error: $_error'));
-    if (_vendorProfile == null) return const Center(child: Text('Vendor profile not found.'));
+    if (_vendorProfile == null) {
+      return const Center(child: Text('Vendor profile not found.'));
+    }
 
     return SafeArea(
       child: Column(
@@ -91,8 +120,14 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Vendor Dashboard',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
+                const Text(
+                  'Vendor Dashboard',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
                 IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
               ],
             ),
@@ -104,8 +139,14 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
                   const SizedBox(height: 8),
-                  Text('Welcome, ${_vendorProfile!['shopName'] ?? _vendorProfile!['name']}',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black54)),
+                  Text(
+                    'Welcome, ${_vendorProfile!['shopName'] ?? _vendorProfile!['name']}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black54,
+                    ),
+                  ),
                   const SizedBox(height: 20),
 
                   // ── Weekly Summary Cards ────────────────────────────────────
@@ -161,43 +202,55 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
                               color: Colors.purple[100],
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Icon(Icons.local_shipping_rounded,
-                                color: Colors.purple[700], size: 22),
+                            child: Icon(
+                              Icons.local_shipping_rounded,
+                              color: Colors.purple[700],
+                              size: 22,
+                            ),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Last Pickup',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14)),
+                                const Text(
+                                  'Last Pickup',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
                                 Text(
                                   '${_lastCollected!['declaredWaste']} kg • ${_lastCollected!['wasteType'] ?? 'Mixed'}',
                                   style: const TextStyle(
-                                      color: Colors.black54, fontSize: 13),
+                                    color: Colors.black54,
+                                    fontSize: 13,
+                                  ),
                                 ),
-                                if ((_lastCollected!['drivers'] as Map?)
-                                        ?['name'] !=
+                                if ((_lastCollected!['drivers']
+                                        as Map?)?['name'] !=
                                     null)
                                   Text(
                                     'by ${_lastCollected!['drivers']['name']}',
                                     style: TextStyle(
-                                        color: Colors.purple[400],
-                                        fontSize: 12),
+                                      color: Colors.purple[400],
+                                      fontSize: 12,
+                                    ),
                                   ),
                               ],
                             ),
                           ),
-                          if ((_lastCollected!['timestamp'] ?? '').toString().isNotEmpty)
+                          if ((_lastCollected!['timestamp'] ?? '')
+                              .toString()
+                              .isNotEmpty)
                             Text(
                               _lastCollected!['timestamp'],
                               style: TextStyle(
-                                  color: Colors.purple[400],
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600),
+                                color: Colors.purple[400],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                         ],
                       ),
@@ -209,12 +262,16 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
                   // Status Card
                   InkWell(
                     onTap: () async {
-                      await Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => VendorStatusScreen(
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VendorStatusScreen(
                             currentStatus: _currentStatus,
                             declaredWaste: _declaredWaste,
-                            wasteType: _wasteType),
-                      ));
+                            wasteType: _wasteType,
+                          ),
+                        ),
+                      );
                       _load();
                     },
                     borderRadius: BorderRadius.circular(12),
@@ -223,7 +280,11 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
                       decoration: BoxDecoration(
                         color: isPending ? Colors.yellow[50] : Colors.green[50],
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: isPending ? Colors.orange[200]! : Colors.green[200]!),
+                        border: Border.all(
+                          color: isPending
+                              ? Colors.orange[200]!
+                              : Colors.green[200]!,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,58 +292,117 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(children: [
-                                Icon(isPending ? Icons.access_time_filled : Icons.check_circle,
-                                    color: isPending ? Colors.orange[700] : Colors.green[700]),
-                                const SizedBox(width: 8),
-                                Text(_currentStatus,
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
-                                        color: isPending ? Colors.orange[800] : Colors.green[800])),
-                              ]),
-                              Icon(Icons.chevron_right,
-                                  color: isPending ? Colors.orange[400] : Colors.green[400]),
+                              Row(
+                                children: [
+                                  Icon(
+                                    isPending
+                                        ? Icons.access_time_filled
+                                        : Icons.check_circle,
+                                    color: isPending
+                                        ? Colors.orange[700]
+                                        : Colors.green[700],
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _currentStatus,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: isPending
+                                          ? Colors.orange[800]
+                                          : Colors.green[800],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                color: isPending
+                                    ? Colors.orange[400]
+                                    : Colors.green[400],
+                              ),
                             ],
                           ),
                           const SizedBox(height: 16),
                           if (isPending) ...[
-                            Text('Declared: $_declaredWaste • $_wasteType',
-                                style: const TextStyle(fontSize: 14)),
+                            Text(
+                              'Declared: $_declaredWaste • $_wasteType',
+                              style: const TextStyle(fontSize: 14),
+                            ),
                             const SizedBox(height: 4),
-                            const Text('Pickup expected within 2 hours',
-                                style: TextStyle(fontSize: 14, color: Colors.black54)),
+                            const Text(
+                              'Pickup expected within 2 hours',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black54,
+                              ),
+                            ),
                           ] else
-                            const Text('No pending pickup. Declare new waste.',
-                                style: TextStyle(fontSize: 14, color: Colors.black54)),
+                            const Text(
+                              'No pending pickup. Declare new waste.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black54,
+                              ),
+                            ),
                         ],
                       ),
                     ),
                   ),
+                  if (isPending) ...[
+                    const SizedBox(height: 16),
+                    _buildQrCard(),
+                  ],
                   const SizedBox(height: 32),
 
                   // Declare button
                   ElevatedButton(
-                    onPressed: isPending ? null : () async {
-                      final ok = await Navigator.push<bool>(context, MaterialPageRoute(
-                        builder: (_) => VendorDeclareWasteScreen(vendorId: _vendorProfile!['id']),
-                      ));
-                      if (ok == true) _load();
-                    },
+                    onPressed: isPending
+                        ? null
+                        : () async {
+                            final ok = await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => VendorDeclareWasteScreen(
+                                  vendorId: _vendorProfile!['id'],
+                                ),
+                              ),
+                            );
+                            if (ok == true) _load();
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primary,
                       disabledBackgroundColor: Colors.grey[300],
                       minimumSize: const Size.fromHeight(56),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    child: Text(isPending ? 'Pickup Pending…' : 'Declare Waste',
-                        style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      isPending ? 'Pickup Pending…' : 'Declare Waste',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 48),
 
-                  const Text('Recent Activity',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  const Text(
+                    'Recent Activity',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   if (_records.isEmpty)
-                    const Text('No records yet.', style: TextStyle(color: Colors.black45))
+                    const Text(
+                      'No records yet.',
+                      style: TextStyle(color: Colors.black45),
+                    )
                   else
                     ..._records.take(10).map(_buildActivityTile),
                   const SizedBox(height: 24),
@@ -309,25 +429,123 @@ class _VendorDashboardTabState extends State<VendorDashboardTab> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Flexible(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('${r['declaredWaste']} kg • ${r['wasteType']}',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${r['declaredWaste']} kg • ${r['wasteType']}',
                   style: const TextStyle(fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis),
-              if ((r['timestamp'] ?? '').isNotEmpty)
-                Text('At ${r['timestamp']}',
-                    style: const TextStyle(color: Colors.black54, fontSize: 12)),
-            ]),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if ((r['timestamp'] ?? '').isNotEmpty)
+                  Text(
+                    'At ${r['timestamp']}',
+                    style: const TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-                color: isCollected ? Colors.green[50] : Colors.orange[50],
-                borderRadius: BorderRadius.circular(20)),
-            child: Text(r['status'],
-                style: TextStyle(
-                    color: isCollected ? Colors.green[700] : Colors.orange[700],
-                    fontSize: 12, fontWeight: FontWeight.w600)),
+              color: isCollected ? Colors.green[50] : Colors.orange[50],
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              r['status'],
+              style: TextStyle(
+                color: isCollected ? Colors.green[700] : Colors.orange[700],
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQrCard() {
+    final latest = _latest;
+    final verified = latest?['qr_verified'] == true;
+    final qrData = _qrPayload == null ? null : jsonEncode(_qrPayload);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Icon(
+                verified ? Icons.verified_rounded : Icons.qr_code_2_rounded,
+                color: verified ? Colors.green[700] : AppTheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  verified
+                      ? 'Driver verified pickup'
+                      : 'Pickup Verification QR',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (_qrLoading)
+                const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                IconButton(
+                  tooltip: 'Refresh QR',
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: _load,
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (qrData == null)
+            const Padding(
+              padding: EdgeInsets.all(18),
+              child: Text(
+                'Generating QR...',
+                style: TextStyle(color: Colors.black54),
+              ),
+            )
+          else
+            QrImageView(
+              data: qrData,
+              version: QrVersions.auto,
+              size: 190,
+              backgroundColor: Colors.white,
+            ),
+          const SizedBox(height: 10),
+          Text(
+            verified
+                ? 'Scan completed at ${latest?['scan_time'] ?? 'server time'}'
+                : 'Show this QR to the driver at pickup.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: verified ? Colors.green[700] : Colors.black54,
+              fontSize: 12,
+            ),
           ),
         ],
       ),
@@ -364,14 +582,19 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Icon(icon, color: iconColor, size: 22),
           const SizedBox(height: 8),
-          Text(value,
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: iconColor)),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: iconColor,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(fontSize: 11, color: Colors.black45)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Colors.black45),
+          ),
         ],
       ),
     );
