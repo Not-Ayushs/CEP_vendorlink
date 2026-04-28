@@ -9,7 +9,8 @@ class VendorDeclareWasteScreen extends StatefulWidget {
   const VendorDeclareWasteScreen({super.key, required this.vendorId});
 
   @override
-  State<VendorDeclareWasteScreen> createState() => _VendorDeclareWasteScreenState();
+  State<VendorDeclareWasteScreen> createState() =>
+      _VendorDeclareWasteScreenState();
 }
 
 class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
@@ -53,7 +54,8 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
 
       if (permission == LocationPermission.deniedForever) {
         setState(() {
-          _locationError = 'Location permission permanently denied. '
+          _locationError =
+              'Location permission permanently denied. '
               'Enable it in app settings to attach your location.';
           _locationFetching = false;
         });
@@ -62,7 +64,8 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
 
       if (permission == LocationPermission.denied) {
         setState(() {
-          _locationError = 'Location permission denied. '
+          _locationError =
+              'Location permission denied. '
               'Your pickup location will not be recorded.';
           _locationFetching = false;
         });
@@ -83,7 +86,8 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
       });
     } catch (e) {
       setState(() {
-        _locationError = 'Could not get location. '
+        _locationError =
+            'Could not get location. '
             'Your pickup location will not be recorded.';
         _locationFetching = false;
       });
@@ -104,7 +108,13 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
           children: [
             Icon(Icons.assignment_turned_in_rounded, color: AppTheme.primary),
             SizedBox(width: 10),
-            Text('Confirm Declaration'),
+            Expanded(
+              child: Text(
+                'Confirm Declaration',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: Column(
@@ -122,24 +132,37 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Amount: ${_amountCtrl.text} kg',
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(
+                    'Amount: ${_amountCtrl.text} kg',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 6),
-                  Text('Type: $_wasteType',
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(
+                    'Type: $_wasteType',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   if (_notesCtrl.text.trim().isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    Text('Notes: ${_notesCtrl.text.trim()}',
-                        style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                    Text(
+                      'Notes: ${_notesCtrl.text.trim()}',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 13,
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 10),
                   // Location confirmation row
                   Row(
                     children: [
                       Icon(
-                        _lat != null ? Icons.location_on_rounded : Icons.location_off_rounded,
+                        _lat != null
+                            ? Icons.location_on_rounded
+                            : Icons.location_off_rounded,
                         size: 16,
-                        color: _lat != null ? Colors.green[700] : Colors.orange[700],
+                        color: _lat != null
+                            ? Colors.green[700]
+                            : Colors.orange[700],
                       ),
                       const SizedBox(width: 6),
                       Expanded(
@@ -149,7 +172,9 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
                               : 'Location: not captured',
                           style: TextStyle(
                             fontSize: 12,
-                            color: _lat != null ? Colors.green[700] : Colors.orange[700],
+                            color: _lat != null
+                                ? Colors.green[700]
+                                : Colors.orange[700],
                           ),
                         ),
                       ),
@@ -161,17 +186,36 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    minimumSize: const Size.fromHeight(52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    'Declare',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
             ),
-            child: const Text('Declare', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -185,7 +229,9 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
         vendorId: widget.vendorId,
         declaredWaste: double.parse(_amountCtrl.text),
         wasteType: _wasteType,
-        notes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+        notes: _notesCtrl.text.trim().isNotEmpty
+            ? _notesCtrl.text.trim()
+            : null,
         lat: _lat,
         lng: _lng,
       );
@@ -194,16 +240,24 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
-                Text(_lat != null
-                    ? 'Waste declared with location!'
-                    : 'Waste declared successfully!'),
+                Text(
+                  _lat != null
+                      ? 'Waste declared with location!'
+                      : 'Waste declared successfully!',
+                ),
               ],
             ),
             backgroundColor: Colors.green[700],
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
         Navigator.pop(context, true);
@@ -241,132 +295,173 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
           padding: const EdgeInsets.all(20),
           child: Form(
             key: _formKey,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Location status banner ───────────────────────────────────────
+                _buildLocationBanner(),
+                const SizedBox(height: 20),
 
-              // ── Location status banner ───────────────────────────────────────
-              _buildLocationBanner(),
-              const SizedBox(height: 20),
-
-              // ── Amount ──────────────────────────────────────────────────────
-              const Text('Waste Amount',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _amountCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'Amount in kg',
-                  hintText: 'e.g. 12.5',
-                  prefixIcon: const Icon(Icons.scale_rounded),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true, fillColor: Colors.grey[50],
+                // ── Amount ──────────────────────────────────────────────────────
+                const Text(
+                  'Waste Amount',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Required';
-                  if (double.tryParse(v) == null) return 'Enter a valid number';
-                  return null;
-                },
-              ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _amountCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Amount in kg',
+                    hintText: 'e.g. 12.5',
+                    prefixIcon: const Icon(Icons.scale_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                  ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Required';
+                    if (double.tryParse(v) == null)
+                      return 'Enter a valid number';
+                    return null;
+                  },
+                ),
 
-              const SizedBox(height: 28),
+                const SizedBox(height: 28),
 
-              // ── Waste Type Selection (icon grid) ─────────────────────────────
-              const Text('Waste Type',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              const Text('Select the type of waste',
-                  style: TextStyle(color: Colors.black45, fontSize: 13)),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: _wasteTypes.map((wt) {
-                  final selected = _wasteType == wt.label;
-                  return GestureDetector(
-                    onTap: () => setState(() => _wasteType = wt.label),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: (MediaQuery.of(context).size.width - 60) / 3,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? wt.color.withValues(alpha: 0.1)
-                            : Colors.grey[50],
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: selected ? wt.color : Colors.grey[200]!,
-                          width: selected ? 2 : 1,
+                // ── Waste Type Selection (icon grid) ─────────────────────────────
+                const Text(
+                  'Waste Type',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Select the type of waste',
+                  style: TextStyle(color: Colors.black45, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: _wasteTypes.map((wt) {
+                    final selected = _wasteType == wt.label;
+                    return GestureDetector(
+                      onTap: () => setState(() => _wasteType = wt.label),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: (MediaQuery.of(context).size.width - 60) / 3,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? wt.color.withValues(alpha: 0.1)
+                              : Colors.grey[50],
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: selected ? wt.color : Colors.grey[200]!,
+                            width: selected ? 2 : 1,
+                          ),
                         ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(wt.icon,
+                        child: Column(
+                          children: [
+                            Icon(
+                              wt.icon,
                               color: selected ? wt.color : Colors.grey[500],
-                              size: 28),
-                          const SizedBox(height: 8),
-                          Text(wt.label,
+                              size: 28,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              wt.label,
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: selected
                                     ? FontWeight.bold
                                     : FontWeight.w500,
                                 color: selected ? wt.color : Colors.black54,
-                              )),
-                          if (selected) ...[
-                            const SizedBox(height: 4),
-                            Icon(Icons.check_circle_rounded,
-                                color: wt.color, size: 16),
+                              ),
+                            ),
+                            if (selected) ...[
+                              const SizedBox(height: 4),
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: wt.color,
+                                size: 16,
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 28),
+
+                // ── Notes ───────────────────────────────────────────────────────
+                const Text(
+                  'Additional Notes',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Optionally add notes for the driver',
+                  style: TextStyle(color: Colors.black45, fontSize: 13),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _notesCtrl,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Bags are near the back entrance',
+                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.only(bottom: 44),
+                      child: Icon(Icons.notes_rounded),
                     ),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 28),
-
-              // ── Notes ───────────────────────────────────────────────────────
-              const Text('Additional Notes',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              const Text('Optionally add notes for the driver',
-                  style: TextStyle(color: Colors.black45, fontSize: 13)),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _notesCtrl,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'e.g. Bags are near the back entrance',
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(bottom: 44),
-                    child: Icon(Icons.notes_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[50],
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true, fillColor: Colors.grey[50],
                 ),
-              ),
 
-              const SizedBox(height: 40),
+                const SizedBox(height: 40),
 
-              // ── Submit ──────────────────────────────────────────────────────
-              ElevatedButton(
-                onPressed: _submitting ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  minimumSize: const Size.fromHeight(56),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                // ── Submit ──────────────────────────────────────────────────────
+                ElevatedButton(
+                  onPressed: _submitting ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    minimumSize: const Size.fromHeight(56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text(
+                          'Submit Declaration',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
-                child: _submitting
-                    ? const SizedBox(
-                        height: 22, width: 22,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                    : const Text('Submit Declaration',
-                        style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 24),
-            ]),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
@@ -387,12 +482,15 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
         child: Row(
           children: [
             const SizedBox(
-              width: 16, height: 16,
+              width: 16,
+              height: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             const SizedBox(width: 10),
-            Text('Getting your location…',
-                style: TextStyle(fontSize: 13, color: Colors.blue[800])),
+            Text(
+              'Getting your location…',
+              style: TextStyle(fontSize: 13, color: Colors.blue[800]),
+            ),
           ],
         ),
       );
@@ -418,7 +516,11 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
             ),
             // Retry button
             IconButton(
-              icon: Icon(Icons.refresh_rounded, size: 18, color: Colors.green[700]),
+              icon: Icon(
+                Icons.refresh_rounded,
+                size: 18,
+                color: Colors.green[700],
+              ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: _locationFetching ? null : _fetchLocation,
@@ -443,12 +545,17 @@ class _VendorDeclareWasteScreenState extends State<VendorDeclareWasteScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _locationError ?? 'Location unavailable. Declaration will proceed without coordinates.',
+              _locationError ??
+                  'Location unavailable. Declaration will proceed without coordinates.',
               style: TextStyle(fontSize: 12, color: Colors.orange[800]),
             ),
           ),
           IconButton(
-            icon: Icon(Icons.refresh_rounded, size: 18, color: Colors.orange[700]),
+            icon: Icon(
+              Icons.refresh_rounded,
+              size: 18,
+              color: Colors.orange[700],
+            ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: _locationFetching ? null : _fetchLocation,

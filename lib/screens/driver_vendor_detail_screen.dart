@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:swm_vendor/services/supabase_service.dart';
 import 'package:swm_vendor/theme/app_theme.dart';
 import 'qr_scanner_screen.dart';
@@ -21,8 +22,11 @@ class DriverVendorDetailScreen extends StatefulWidget {
 class _DriverVendorDetailScreenState extends State<DriverVendorDetailScreen> {
   bool _qrScanned = false;
   bool _photoAdded = false;
+  bool _photoUploading = false;
   bool _submitting = false;
+  String? _proofPhotoName;
   final _verifiedCtrl = TextEditingController();
+  final _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -72,6 +76,7 @@ class _DriverVendorDetailScreenState extends State<DriverVendorDetailScreen> {
     }
   }
 
+  // ignore: unused_element
   void _photo() {
     setState(() => _photoAdded = true);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -80,6 +85,103 @@ class _DriverVendorDetailScreenState extends State<DriverVendorDetailScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  Future<void> _chooseProofPhotoSource() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Take photo'),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from gallery'),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source == null) return;
+    await _uploadProofPhoto(source);
+  }
+
+  Future<void> _uploadProofPhoto(ImageSource source) async {
+    setState(() => _photoUploading = true);
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1280,
+        imageQuality: 72,
+      );
+      if (image == null) {
+        if (mounted) setState(() => _photoUploading = false);
+        return;
+      }
+
+      final bytes = await image.readAsBytes();
+      await SupabaseService.uploadCollectionProofPhoto(
+        recordId: widget.record['id'],
+        vendorId: widget.record['vendorId'],
+        driverId: widget.driverProfile?['id'] ?? 1,
+        bytes: bytes,
+        fileName: image.name,
+        mimeType: image.mimeType ?? _guessMimeType(image.name),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _photoAdded = true;
+        _proofPhotoName = image.name;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Proof photo uploaded successfully.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Photo upload failed: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _photoUploading = false);
+    }
+  }
+
+  String _guessMimeType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 
   void _callVendor() {
@@ -315,7 +417,7 @@ class _DriverVendorDetailScreenState extends State<DriverVendorDetailScreen> {
   Widget build(BuildContext context) {
     final r = widget.record;
     final vendor = r['vendors'];
-    final bool canCollect = _qrScanned && _photoAdded;
+    final bool canCollect = _qrScanned && _photoAdded && !_photoUploading;
     final wasteType = r['wasteType'] ?? 'Mixed';
 
     return Scaffold(
@@ -543,9 +645,15 @@ class _DriverVendorDetailScreenState extends State<DriverVendorDetailScreen> {
               _buildAction(
                 Icons.camera_alt,
                 'Upload Waste Photo',
-                _photoAdded ? 'Uploaded ✓' : 'Tap to simulate',
+                _photoUploading
+                    ? 'Uploading proof photo...'
+                    : _photoAdded
+                    ? (_proofPhotoName ?? 'Uploaded')
+                    : 'Take or choose photo',
                 _photoAdded,
-                _photoAdded ? null : _photo,
+                (_photoAdded || _photoUploading)
+                    ? null
+                    : _chooseProofPhotoSource,
               ),
               const SizedBox(height: 24),
               AnimatedOpacity(

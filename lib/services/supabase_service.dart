@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -50,6 +51,7 @@ class SupabaseService {
 
   static User? get currentUser => client.auth.currentUser;
   static Session? get currentSession => client.auth.currentSession;
+  static const String proofPhotoBucket = 'collection-proof-photos';
 
   /// Sign in — demo users get a helpful error message if not yet seeded.
   static Future<AuthResponse> signInWithEmail(String email, String password) {
@@ -318,7 +320,11 @@ class SupabaseService {
   static Future<List<Map<String, dynamic>>> getAllRecords() async {
     final res = await client
         .from('waste_records')
-        .select('*, vendors(name, shopName), drivers(name)')
+        .select(
+          '*, vendors(name, shopName), drivers(name), '
+          'collection_proof_photos(id, storage_bucket, storage_path, image_url, '
+          'mime_type, file_size, uploaded_at, review_status)',
+        )
         .order('id', ascending: false);
     return List<Map<String, dynamic>>.from(res);
   }
@@ -416,6 +422,93 @@ class SupabaseService {
           'photoAdded': photoAdded,
         })
         .eq('id', recordId);
+  }
+
+  static Future<Map<String, dynamic>> uploadCollectionProofPhoto({
+    required int recordId,
+    required int vendorId,
+    required int driverId,
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+  }) async {
+    final ext = _photoExtension(fileName, mimeType);
+    final timestamp = DateTime.now().toUtc().millisecondsSinceEpoch;
+    final storagePath = 'record_$recordId/driver_${driverId}_$timestamp.$ext';
+
+    await client.storage
+        .from(proofPhotoBucket)
+        .uploadBinary(
+          storagePath,
+          bytes,
+          fileOptions: FileOptions(contentType: mimeType, upsert: false),
+        );
+
+    final proof = await client
+        .from('collection_proof_photos')
+        .insert({
+          'record_id': recordId,
+          'vendor_id': vendorId,
+          'driver_id': driverId,
+          'storage_bucket': proofPhotoBucket,
+          'storage_path': storagePath,
+          'image_url': client.storage
+              .from(proofPhotoBucket)
+              .getPublicUrl(storagePath),
+          'mime_type': mimeType,
+          'file_size': bytes.length,
+          'review_status': 'available',
+        })
+        .select()
+        .single();
+
+    await client
+        .from('waste_records')
+        .update({'photoAdded': true})
+        .eq('id', recordId);
+
+    return Map<String, dynamic>.from(proof);
+  }
+
+  static Future<Map<String, dynamic>?> getLatestProofPhoto(int recordId) async {
+    final res = await client
+        .from('collection_proof_photos')
+        .select()
+        .eq('record_id', recordId)
+        .order('uploaded_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+    if (res == null) return null;
+    return Map<String, dynamic>.from(res);
+  }
+
+  static Future<String> createProofPhotoSignedUrl(
+    Map<String, dynamic> proof, {
+    int expiresInSeconds = 600,
+  }) async {
+    final bucket = proof['storage_bucket']?.toString() ?? proofPhotoBucket;
+    final path = proof['storage_path']?.toString();
+    if (path == null || path.isEmpty) {
+      throw Exception('Proof photo storage path is missing.');
+    }
+    return client.storage.from(bucket).createSignedUrl(path, expiresInSeconds);
+  }
+
+  static Future<void> markProofPhotoViewed(int proofPhotoId) async {
+    await client
+        .from('collection_proof_photos')
+        .update({
+          'admin_viewed_at': DateTime.now().toUtc().toIso8601String(),
+          'admin_viewed_by': currentUser?.id,
+        })
+        .eq('id', proofPhotoId);
+  }
+
+  static String _photoExtension(String fileName, String mimeType) {
+    final lowerName = fileName.toLowerCase();
+    if (mimeType.contains('png') || lowerName.endsWith('.png')) return 'png';
+    if (mimeType.contains('webp') || lowerName.endsWith('.webp')) return 'webp';
+    return 'jpg';
   }
 }
 

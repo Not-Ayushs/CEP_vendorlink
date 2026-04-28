@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:swm_vendor/theme/app_theme.dart';
+import 'package:swm_vendor/utils/proof_photo_viewer.dart';
 
 class AdminRecordsTab extends StatefulWidget {
   final List<Map<String, dynamic>> records;
@@ -236,6 +237,12 @@ class _AdminRecordsTabState extends State<AdminRecordsTab> {
                       '${(r['driver_lat'] as num).toStringAsFixed(5)}, ${(r['driver_lng'] as num).toStringAsFixed(5)}',
                       Colors.blueGrey,
                     ),
+                  if (recordHasProofPhoto(r))
+                    ActionChip(
+                      avatar: const Icon(Icons.image_outlined, size: 16),
+                      label: const Text('View proof'),
+                      onPressed: () => showProofPhotoDialog(context, r),
+                    ),
                 ],
               ),
               if (flagged && (r['_reasons'] ?? '').isNotEmpty) ...[
@@ -397,6 +404,7 @@ class _AdminRecordsTabState extends State<AdminRecordsTab> {
             DataColumn(label: Text('QR Verified')),
             DataColumn(label: Text('Scan Time')),
             DataColumn(label: Text('Driver Location')),
+            DataColumn(label: Text('Proof Photo')),
             DataColumn(label: Text('Flag')),
           ],
           rows: list.map((r) {
@@ -449,6 +457,15 @@ class _AdminRecordsTabState extends State<AdminRecordsTab> {
                         ? '${(r['driver_lat'] as num).toStringAsFixed(5)}, ${(r['driver_lng'] as num).toStringAsFixed(5)}'
                         : '—',
                   ),
+                ),
+                DataCell(
+                  recordHasProofPhoto(r)
+                      ? IconButton(
+                          tooltip: 'View proof photo',
+                          onPressed: () => showProofPhotoDialog(context, r),
+                          icon: const Icon(Icons.image_outlined),
+                        )
+                      : const Text('-'),
                 ),
                 DataCell(
                   flagged

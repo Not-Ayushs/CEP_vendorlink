@@ -72,7 +72,15 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
     }
 
     if (mounted) {
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        if (!_filteredAndSearched.any((r) => r['id'] == _expandedId)) {
+          _expandedId = null;
+          _routePoints = [];
+          _routeError = null;
+          _routeLoading = false;
+        }
+      });
       if (_locationDenied) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -91,10 +99,15 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
       _nearbyRecords.where((r) => r['status'] == _filter).toList();
 
   List<Map<String, dynamic>> get _nearbyRecords {
-    if (_userLocation == null) return [];
+    // If driver location is unavailable, show ALL records so the driver
+    // never sees a blank screen just because GPS failed.
+    if (_userLocation == null) return List<Map<String, dynamic>>.from(_all);
+
     return _all.where((r) {
       final loc = _recordLocation(r);
-      if (loc == null) return false;
+      // Records without coordinates (submitted before GPS was added) are always
+      // included — we just can't show a distance for them.
+      if (loc == null) return true;
       return _distance.as(LengthUnit.Kilometer, _userLocation!, loc) <=
           _nearbyRadiusKm;
     }).toList();
@@ -115,6 +128,13 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
       final shop = (vendor?['shopName'] ?? '').toString().toLowerCase();
       return name.contains(q) || shop.contains(q);
     }).toList();
+  }
+
+  Map<String, dynamic>? get _selectedVisibleRecord {
+    for (final record in _filteredAndSearched) {
+      if (record['id'] == _expandedId) return record;
+    }
+    return null;
   }
 
   LatLng? _recordLocation(Map<String, dynamic> record) {
@@ -443,8 +463,11 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
   Widget _buildMobileFriendlyMap() {
     final mapCenter = _userLocation ?? _mumbaiCenter;
 
-    // Build vendor markers
-    final vendorMarkers = _filteredAndSearched.map((r) {
+    // Build vendor markers — only for records that have GPS coordinates.
+    // Records without lat/lng still appear in the list view.
+    final vendorMarkers = _filteredAndSearched
+        .where((r) => _recordLocation(r) != null)
+        .map((r) {
       final loc = _recordLocation(r)!;
       final isCollected = r['status'] == 'Collected';
       final isSelected = _expandedId == r['id'];
@@ -583,9 +606,15 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
               left: 20,
               right: 20,
               bottom: 20,
-              child: _buildVendorExpandableTile(
-                _filteredAndSearched.firstWhere((r) => r['id'] == _expandedId),
-                forceExpand: true,
+              child: Builder(
+                builder: (_) {
+                  final selected = _selectedVisibleRecord;
+                  if (selected == null) return const SizedBox.shrink();
+                  return _buildVendorExpandableTile(
+                    selected,
+                    forceExpand: true,
+                  );
+                },
               ),
             ),
           if (_routeLoading || _routeError != null)
@@ -637,13 +666,11 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
 
   Widget _buildList() {
     if (_filteredAndSearched.isEmpty) {
-      final message = _userLocation == null
-          ? 'Enable location to see nearby vendors'
-          : _searchQuery.isNotEmpty
-          ? 'No matching nearby vendors'
+      final message = _searchQuery.isNotEmpty
+          ? 'No matching vendors found'
           : _filter == 'Pending'
-          ? 'No nearby pending pickups'
-          : 'No nearby collected pickups';
+          ? 'No pending pickups'
+          : 'No collected pickups yet';
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -663,12 +690,21 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Showing vendors within ${_nearbyRadiusKm.toStringAsFixed(0)} km of the driver.',
-              style: const TextStyle(color: Colors.black45, fontSize: 12),
-              textAlign: TextAlign.center,
-            ),
+            if (_userLocation != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Showing vendors within ${_nearbyRadiusKm.toStringAsFixed(0)} km of you.',
+                style: const TextStyle(color: Colors.black45, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Enable location for distance-based filtering.',
+                style: TextStyle(color: Colors.black45, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ],
         ),
       );
@@ -695,10 +731,13 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
     final vendor = r['vendors'];
     final isCollected = r['status'] == 'Collected';
     final isExpanded = forceExpand || _expandedId == r['id'];
-    final loc = _recordLocation(r)!;
+    // loc may be null for records submitted without GPS — handle safely
+    final loc = _recordLocation(r);
     final address = (vendor?['address'] ?? '').toString().trim().isNotEmpty
         ? vendor!['address'].toString()
-        : '${loc.latitude.toStringAsFixed(5)}, ${loc.longitude.toStringAsFixed(5)}';
+        : loc != null
+            ? '${loc.latitude.toStringAsFixed(5)}, ${loc.longitude.toStringAsFixed(5)}'
+            : 'Location not captured';
 
     return Container(
       decoration: BoxDecoration(
@@ -839,8 +878,7 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
                     const SizedBox(height: 6),
                     _InfoRow(
                       icon: Icons.notes_outlined,
-                      text:
-                          (r['notes'] != null &&
+                      text: (r['notes'] != null &&
                               r['notes'].toString().isNotEmpty)
                           ? r['notes']
                           : 'No special instructions given.',
@@ -848,55 +886,56 @@ class _DriverDashboardTabState extends State<DriverDashboardTab> {
 
                     const SizedBox(height: 16),
 
-                    // Action Buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _launchNavigation(loc),
-                            icon: const Icon(
-                              Icons.navigation_outlined,
-                              size: 18,
-                            ),
-                            label: const Text('Open Maps'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.blue[700],
-                              side: BorderSide(color: Colors.blue[200]!),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                        if (!_isMapView) ...[
-                          const SizedBox(width: 10),
+                    // Action Buttons — only shown when location is available
+                    if (loc != null)
+                      Row(
+                        children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: () {
-                                _selectRecord(r, showMap: true);
-                              },
-                              icon: const Icon(Icons.map_outlined, size: 18),
-                              label: const Text('Show Route'),
+                              onPressed: () => _launchNavigation(loc),
+                              icon: const Icon(
+                                Icons.navigation_outlined,
+                                size: 18,
+                              ),
+                              label: const Text('Open Maps'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.primary,
-                                side: BorderSide(
-                                  color: AppTheme.primary.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                ),
+                                foregroundColor: Colors.blue[700],
+                                side: BorderSide(color: Colors.blue[200]!),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
                               ),
                             ),
                           ),
+                          if (!_isMapView) ...[
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () =>
+                                    _selectRecord(r, showMap: true),
+                                icon: const Icon(Icons.map_outlined, size: 18),
+                                label: const Text('Show Route'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primary,
+                                  side: BorderSide(
+                                    color: AppTheme.primary.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
+                      ),
 
                     if (!isCollected) ...[
                       const SizedBox(height: 10),

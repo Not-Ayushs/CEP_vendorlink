@@ -7,7 +7,9 @@
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Required to show your location on the route map and plot nearby vendors.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Required for drivers to scan vendor pickup QR codes.</string>
+	<string>Required for drivers to scan vendor pickup QR codes and capture collection proof photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Required for drivers to select collection proof photos when needed.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

@@ -61,11 +61,14 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Overview',
-              style: TextStyle(
-                  fontSize: isMobile ? 20 : 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87)),
+          Text(
+            'Overview',
+            style: TextStyle(
+              fontSize: isMobile ? 20 : 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
           SizedBox(height: isMobile ? 16 : 24),
 
           // ── Stat cards: 2x2 grid on mobile, 1 row on desktop ──────────
@@ -76,23 +79,63 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                   physics: const NeverScrollableScrollPhysics(),
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: 1.8,
+                  childAspectRatio: 1.45,
                   children: [
-                    _buildStatCard('Total', widget.totalPickups.toString(), Colors.blue),
-                    _buildStatCard('Completed', widget.completed.toString(), Colors.green),
-                    _buildStatCard('Pending', widget.pending.toString(), Colors.orange),
-                    _buildStatCard('Flagged', widget.flagged.toString(), Colors.red),
+                    _buildStatCard(
+                      'Total',
+                      widget.totalPickups.toString(),
+                      Colors.blue,
+                    ),
+                    _buildStatCard(
+                      'Completed',
+                      widget.completed.toString(),
+                      Colors.green,
+                    ),
+                    _buildStatCard(
+                      'Pending',
+                      widget.pending.toString(),
+                      Colors.orange,
+                    ),
+                    _buildStatCard(
+                      'Flagged',
+                      widget.flagged.toString(),
+                      Colors.red,
+                    ),
                   ],
                 )
               : Row(
                   children: [
-                    Expanded(child: _buildStatCard('Total Pickups', widget.totalPickups.toString(), Colors.blue)),
+                    Expanded(
+                      child: _buildStatCard(
+                        'Total Pickups',
+                        widget.totalPickups.toString(),
+                        Colors.blue,
+                      ),
+                    ),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Completed', widget.completed.toString(), Colors.green)),
+                    Expanded(
+                      child: _buildStatCard(
+                        'Completed',
+                        widget.completed.toString(),
+                        Colors.green,
+                      ),
+                    ),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Pending', widget.pending.toString(), Colors.orange)),
+                    Expanded(
+                      child: _buildStatCard(
+                        'Pending',
+                        widget.pending.toString(),
+                        Colors.orange,
+                      ),
+                    ),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Flagged', widget.flagged.toString(), Colors.red)),
+                    Expanded(
+                      child: _buildStatCard(
+                        'Flagged',
+                        widget.flagged.toString(),
+                        Colors.red,
+                      ),
+                    ),
                   ],
                 ),
 
@@ -101,11 +144,14 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
           // Map section header with location status
           Row(
             children: [
-              Text('Live Territory Map',
-                  style: TextStyle(
-                      fontSize: isMobile ? 16 : 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87)),
+              Text(
+                'Live Territory Map',
+                style: TextStyle(
+                  fontSize: isMobile ? 16 : 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
               const SizedBox(width: 8),
               Icon(
                 _userLocation != null ? Icons.location_on : Icons.location_off,
@@ -117,7 +163,9 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                 _userLocation != null ? 'Live' : 'Default view',
                 style: TextStyle(
                   fontSize: 12,
-                  color: _userLocation != null ? Colors.green[700] : Colors.grey[500],
+                  color: _userLocation != null
+                      ? Colors.green[700]
+                      : Colors.grey[500],
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -141,7 +189,8 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.swmvendor.app',
                   ),
                   MarkerLayer(
@@ -159,12 +208,24 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                             child: Container(
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isCollected ? Colors.green : Colors.orange,
-                                border: Border.all(color: Colors.white, width: 2),
-                                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                                color: isCollected
+                                    ? Colors.green
+                                    : Colors.orange,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 4,
+                                  ),
+                                ],
                               ),
                               child: Icon(
-                                isCollected ? Icons.check : Icons.local_shipping_rounded,
+                                isCollected
+                                    ? Icons.check
+                                    : Icons.local_shipping_rounded,
                                 color: Colors.white,
                                 size: isCollected ? 16 : 20,
                               ),
@@ -183,9 +244,15 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                               shape: BoxShape.circle,
                               color: Colors.blue[700],
                               border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 6)],
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black38, blurRadius: 6),
+                              ],
                             ),
-                            child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 22),
+                            child: const Icon(
+                              Icons.my_location_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
                           ),
                         ),
                     ],
@@ -202,16 +269,17 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
 
   Widget _buildStatCard(String title, String value, MaterialColor color) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 4))
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -219,19 +287,24 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(title,
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 6),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(value,
-                style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    color: color[700])),
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color[700],
+              ),
+            ),
           ),
         ],
       ),
